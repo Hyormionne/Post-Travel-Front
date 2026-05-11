@@ -1,0 +1,49 @@
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600&family=Gaegu:wght@400;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
+
+* {
+  box-sizing: border-box;
+}
+
+/* MapLibre GL — paper-tone Shortbread */
+.maplibregl-canvas {
+  filter: sepia(0.20) saturate(0.80) hue-rotate(4deg) brightness(1.03) contrast(0.95);
+}
+.maplibregl-map {
+  background: #ede6d4 !important;
+  outline: none;
+}
+.maplibregl-ctrl-attrib {
+  background: rgba(246, 241, 230, 0.82) !important;
+  color: rgba(44, 38, 32, 0.55) !important;
+  font-family: 'JetBrains Mono', ui-monospace, monospace !important;
+  font-size: 8px !important;
+  border-radius: 6px 0 0 0 !important;
+  padding: 1px 6px !important;
+}
+.maplibregl-ctrl-attrib a {
+  color: rgba(44, 38, 32, 0.7) !important;
+}
+.yh-thumbpin {
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Noto Sans KR', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #e8e3d8;
+  min-height: 100dvh;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
