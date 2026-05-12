@@ -16,3 +16,15 @@ export interface Room {
   createdAt: string;
   members: RoomMember[];
 }
+
+export interface CreateRoomRequest {
+  title?: string;
+}
+
+export interface UpdateRoomRequest {
+  title: string;
+}
+
+export interface InviteTokenResponse {
+  inviteToken: string;
+}

@@ -1,5 +1,5 @@
 import { type CSSProperties, type ReactNode } from 'react';
-import { PAPER, INK, INK_SOFT, FONT_UI, FONT_MONO } from '../theme/tokens';
+import { PAPER, INK, FONT_UI } from '../theme/tokens';
 
 interface ScreenProps {
   children: ReactNode;
@@ -7,6 +7,8 @@ interface ScreenProps {
   style?: CSSProperties;
 }
 
+// 메인 컨테이너. 폰 mock 폭(최대 390)을 가운데 정렬.
+// 상단 28px은 모바일 safe-area / 노치용 예약 공간 (와이어프레임의 가짜 상태바 콘텐츠는 제거).
 export function Screen({ children, scrollable = false, style }: ScreenProps) {
   return (
     <div style={{
@@ -14,20 +16,10 @@ export function Screen({ children, scrollable = false, style }: ScreenProps) {
       position: 'relative', margin: '0 auto',
       background: PAPER, color: INK, fontFamily: FONT_UI, fontSize: 11,
       overflow: scrollable ? 'auto' : 'hidden',
+      paddingTop: 'env(safe-area-inset-top, 0)',
       ...style,
     }}>
-      {/* status bar */}
-      <div style={{
-        position: 'sticky', top: 0, left: 0, right: 0, height: 28,
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '0 16px', fontFamily: FONT_MONO, fontSize: 9, color: INK_SOFT,
-        zIndex: 50, background: 'transparent',
-      }}>
-        <span>9:41</span>
-        <span style={{ display: 'flex', gap: 4 }}>
-          <span>•••</span><span>&#9680;</span><span>&#9646;</span>
-        </span>
-      </div>
+      <div style={{ height: 28, flexShrink: 0 }} aria-hidden />
       {children}
     </div>
   );

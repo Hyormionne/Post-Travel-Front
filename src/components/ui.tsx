@@ -24,8 +24,8 @@ export function ThumbPin({ x, y, label, pending, size = 32 }: ThumbPinProps) {
 }
 
 // ── FrostedHeader ──
-interface FrostedHeaderProps { rightBadge?: boolean; profile?: string }
-export function FrostedHeader({ rightBadge, profile = '나' }: FrostedHeaderProps) {
+interface FrostedHeaderProps { rightBadge?: boolean; profile?: string; onBellClick?: () => void }
+export function FrostedHeader({ rightBadge, profile = '나', onBellClick }: FrostedHeaderProps) {
   return (
     <div style={{
       position: 'absolute', top: 28, left: 8, right: 8, height: 44,
@@ -40,7 +40,10 @@ export function FrostedHeader({ rightBadge, profile = '나' }: FrostedHeaderProp
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontFamily: FONT_HAND, fontSize: 12,
       }}>{profile}</div>
-      <div style={{ position: 'relative' }}>
+      <div
+        onClick={onBellClick}
+        style={{ position: 'relative', cursor: onBellClick ? 'pointer' : 'default' }}
+      >
         <span style={{ fontSize: 16 }}>&#128276;</span>
         {rightBadge && (
           <span style={{

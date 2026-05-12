@@ -87,6 +87,15 @@ function applyPaperTheme(map: maplibregl.Map) {
         try { map.setPaintProperty(layer.id, 'text-color', C.text); } catch { /* no text layer */ }
         try { map.setPaintProperty(layer.id, 'text-halo-color', C.textHalo); } catch { /* no halo */ }
         try { map.setPaintProperty(layer.id, 'icon-opacity', 0.6); } catch { /* no icon */ }
+        // 한국어 라벨 우선. name:ko 없으면 name:en, 최후엔 원본 name.
+        try {
+          map.setLayoutProperty(layer.id, 'text-field', [
+            'coalesce',
+            ['get', 'name:ko'],
+            ['get', 'name:en'],
+            ['get', 'name'],
+          ]);
+        } catch { /* layer has no text-field */ }
       }
     } catch {
       // skip layers that don't support a given property
@@ -120,7 +129,13 @@ function makePinEl(label: string | undefined, pending: boolean | undefined): HTM
 export function OpenMapBg({ pins, center = [134, 38.5], zoom = 5, onPinClick }: OpenMapBgProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  const markersRef = useRef<maplibregl.Marker[]>([]);
+  const mapLoadedRef = useRef(false);
+  // ref로 최신 콜백 유지 — pins effect가 onPinClick 변경마다 재실행되지 않도록
+  const onPinClickRef = useRef(onPinClick);
+  onPinClickRef.current = onPinClick;
 
+  // 지도 초기화 (마운트 1회)
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
@@ -136,26 +151,47 @@ export function OpenMapBg({ pins, center = [134, 38.5], zoom = 5, onPinClick }: 
 
     map.on('load', () => {
       applyPaperTheme(map);
-
-      pins.forEach((p, i) => {
-        const el = makePinEl(p.label, p.pending);
-        el.addEventListener('click', (e) => {
-          e.stopPropagation();
-          onPinClick?.(i);
-        });
-        new maplibregl.Marker({ element: el, anchor: 'bottom' })
-          .setLngLat([p.lng, p.lat])
-          .addTo(map);
-      });
+      mapLoadedRef.current = true;
     });
 
     mapRef.current = map;
     return () => {
       map.remove();
       mapRef.current = null;
+      mapLoadedRef.current = false;
+      markersRef.current = [];
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 핀 동기화 — pins prop이 바뀔 때마다 마커를 교체
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const syncPins = () => {
+      markersRef.current.forEach((m) => m.remove());
+      markersRef.current = [];
+      pins.forEach((p, i) => {
+        const el = makePinEl(p.label, p.pending);
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          onPinClickRef.current?.(i);
+        });
+        const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+          .setLngLat([p.lng, p.lat])
+          .addTo(map);
+        markersRef.current.push(marker);
+      });
+    };
+
+    if (mapLoadedRef.current) {
+      syncPins();
+    } else {
+      map.once('load', syncPins);
+      return () => { map.off('load', syncPins); };
+    }
+  }, [pins]);
 
   return <div ref={containerRef} style={{ position: 'absolute', inset: 0, zIndex: 0 }} />;
 }

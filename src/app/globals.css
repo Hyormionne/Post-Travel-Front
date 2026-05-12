@@ -47,3 +47,13 @@ body {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+@keyframes yh-toast-in {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+
+@keyframes yh-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
