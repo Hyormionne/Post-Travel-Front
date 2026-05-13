@@ -201,7 +201,19 @@ export function MetadataPage() {
             </div>
             <input
               value={marker.emoji}
-              onChange={(e) => setMarker((m) => ({ ...m, emoji: e.target.value.slice(-2) || '✨' }))}
+              placeholder=""
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '') {
+                  setMarker((m) => ({ ...m, emoji: '' }));
+                  return;
+                }
+                const chars = Array.from(val);
+                setMarker((m) => ({ ...m, emoji: chars[chars.length - 1] }));
+              }}
+              onBlur={() => {
+                if (!marker.emoji) setMarker((m) => ({ ...m, emoji: '✨' }));
+              }}
               style={{
                 width: '100%', height: 26, borderRadius: 6,
                 border: `1.2px solid ${INK}`, background: PAPER,
