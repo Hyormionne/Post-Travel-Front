@@ -17,6 +17,7 @@ interface OpenMapBgProps {
   center?: [lng: number, lat: number];
   zoom?: number;
   onPinClick?: (index: number) => void;
+  onMapClick?: () => void;
 }
 
 // Design-token palette for overriding Shortbread vector layers
@@ -126,7 +127,7 @@ function makePinEl(label: string | undefined, pending: boolean | undefined): HTM
   return wrap;
 }
 
-export function OpenMapBg({ pins, center = [134, 38.5], zoom = 5, onPinClick }: OpenMapBgProps) {
+export function OpenMapBg({ pins, center = [134, 38.5], zoom = 5, onPinClick, onMapClick }: OpenMapBgProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
@@ -134,6 +135,8 @@ export function OpenMapBg({ pins, center = [134, 38.5], zoom = 5, onPinClick }: 
   // ref로 최신 콜백 유지 — pins effect가 onPinClick 변경마다 재실행되지 않도록
   const onPinClickRef = useRef(onPinClick);
   onPinClickRef.current = onPinClick;
+  const onMapClickRef = useRef(onMapClick);
+  onMapClickRef.current = onMapClick;
 
   // 지도 초기화 (마운트 1회)
   useEffect(() => {
@@ -152,6 +155,10 @@ export function OpenMapBg({ pins, center = [134, 38.5], zoom = 5, onPinClick }: 
     map.on('load', () => {
       applyPaperTheme(map);
       mapLoadedRef.current = true;
+    });
+
+    map.on('click', () => {
+      onMapClickRef.current?.();
     });
 
     mapRef.current = map;

@@ -56,6 +56,7 @@ export function MainMapPage() {
         center={[134, 38.5]}
         zoom={5}
         onPinClick={(i) => setSelected(selected === i ? null : i)}
+        onMapClick={() => setSelected(null)}
       />
       <FrostedHeader
         rightBadge={unread > 0}

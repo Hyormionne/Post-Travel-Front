@@ -75,10 +75,10 @@ export function TripDetailPage() {
       {/* Compact header — 채팅 확정: height 36, 우상단 ⋯ 삭제 */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 10,
-        height: 36, paddingTop: 28,
+        height: 24,
         background: 'rgba(246,241,230,0.85)', backdropFilter: 'blur(8px)',
         borderBottom: `1px solid ${INK_FAINT}`,
-        padding: '30px 14px 6px',
+        padding: '10px 14px 8px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         boxSizing: 'content-box',
       }}>

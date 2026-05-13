@@ -213,11 +213,15 @@ export function EditorPage() {
     }
   };
 
-  const saveLabel =
-    save === 'saving' ? '저장 중...'
-    : save === 'dirty' ? '변경됨'
-    : save === 'error' ? '저장 실패'
-    : '저장됨';
+  // 저장 성공 시 2초 후 자동 숨김
+  useEffect(() => {
+    if (save !== 'saved') return;
+    const timer = setTimeout(() => setSave('idle'), 2000);
+    return () => clearTimeout(timer);
+  }, [save]);
+
+  const showSaveIndicator = save === 'saved' || save === 'saving' || save === 'error';
+  const saveLabel = save === 'saving' ? '저장 중...' : save === 'error' ? '저장 실패' : '저장됨';
   const saveColor = save === 'error' ? TERRA : SAGE;
 
   // hero photo: blog.photos[0]가 있으면 그 라벨로, 없으면 'A'
@@ -235,30 +239,25 @@ export function EditorPage() {
       {/* Editor header */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 10,
-        height: 72,
+        height: 44,
         background: PAPER, borderBottom: `1px solid ${INK_FAINT}`,
-        padding: '12px 14px 8px', display: 'flex',
+        padding: '7px 14px 11px', display: 'flex',
         alignItems: 'center', justifyContent: 'space-between',
       }}>
         <span onClick={onBack} style={{ fontSize: 16, cursor: 'pointer' }}>←</span>
-        <div style={{
-          fontFamily: FONT_MONO, fontSize: 9, color: saveColor,
-          display: 'flex', alignItems: 'center', gap: 4,
-        }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: saveColor }} />
-          {saveLabel}
-        </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <span
-            onClick={onDeleteBlog}
-            style={{ fontFamily: FONT_MONO, fontSize: 9, color: INK_SOFT, cursor: 'pointer' }}
-          >
-            {deleting ? '...' : '삭제'}
-          </span>
-          <Btn primary onClick={() => setConfirming(true)} style={{ padding: '6px 12px', fontSize: 11 }}>
-            {blog?.publishedAt ? '재발행' : '최종 발행'}
-          </Btn>
-        </div>
+        {showSaveIndicator && (
+          <div style={{
+            position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+            fontFamily: FONT_MONO, fontSize: 9, color: saveColor,
+            display: 'flex', alignItems: 'center', gap: 4,
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: saveColor }} />
+            {saveLabel}
+          </div>
+        )}
+        <Btn primary onClick={() => setConfirming(true)} style={{ padding: '6px 12px', fontSize: 11 }}>
+          {blog?.publishedAt ? '재발행' : '최종 발행'}
+        </Btn>
       </div>
       {/* Body */}
       <div style={{ padding: '12px 16px 100px' }}>

@@ -30,6 +30,9 @@ export const MOCK_ROOM: Room = {
     { id: 'm2', roomId: 'room-001', userId: 'user-002', role: 'MEMBER', joinedAt: '2025-05-12T01:00:00.000Z' },
     { id: 'm3', roomId: 'room-001', userId: 'user-003', role: 'MEMBER', joinedAt: '2025-05-12T02:00:00.000Z' },
   ],
+  markerEmoji: '✨',
+  markerBgColor: '#d8c9a5',
+  markerShape: 'classic',
 };
 
 // ─ Photos ───────────────────────────────────────

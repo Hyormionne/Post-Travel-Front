@@ -1,11 +1,12 @@
 // 업로드 흐름(/upload → /metadata → /clusters)의 임시 state.
 // sessionStorage에 보관해 새로고침에도 살아남음. 완료 시 reset.
 import { readSession, useSession, writeSession, clearSession } from '../lib/session';
+import type { MarkerBgColor, MarkerShape } from '../types/room';
 
 export interface MarkerCustom {
   emoji: string;
-  bgColor: string;
-  shape: 'classic' | 'polaroid' | 'sticker' | 'dot' | 'flag' | 'ribbon';
+  bgColor: MarkerBgColor;
+  shape: MarkerShape;
 }
 
 export interface UploadFlowState {
@@ -17,6 +18,7 @@ export interface UploadFlowState {
   coverPhotoId: string | null;
   // 업로드 시작 후 받은 룸 ID (presigned + complete 호출용)
   roomId: string | null;
+  inviteToken: string | null;
   jobId: string | null;
 }
 
@@ -35,6 +37,7 @@ const DEFAULT_STATE: UploadFlowState = {
   invitedNames: ['나'],
   coverPhotoId: null,
   roomId: null,
+  inviteToken: null,
   jobId: null,
 };
 

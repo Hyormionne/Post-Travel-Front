@@ -19,7 +19,6 @@ export function Screen({ children, scrollable = false, style }: ScreenProps) {
       paddingTop: 'env(safe-area-inset-top, 0)',
       ...style,
     }}>
-      <div style={{ height: 28, flexShrink: 0 }} aria-hidden />
       {children}
     </div>
   );

@@ -10,9 +10,10 @@ import {
   FONT_HAND, FONT_UI, FONT_MONO,
 } from '../../theme/tokens';
 import { useUploadFlow, setUploadFlow } from '../../store/uploadFlow';
+import type { MarkerBgColor } from '../../types/room';
 import { createRoom, getPresignedUrls, putToS3, completeUpload, buildCompleteItems } from './api';
 
-const BG_COLORS = ['#d8c9a5', '#cfd8c2', '#e2c9bc', '#c9d2db', '#decfd8', '#f0ead2'];
+const BG_COLORS: MarkerBgColor[] = ['#d8c9a5', '#cfd8c2', '#e2c9bc', '#c9d2db', '#decfd8', '#f0ead2'];
 
 type Shape = 'classic' | 'polaroid' | 'sticker' | 'dot' | 'flag' | 'ribbon';
 const SHAPES: { k: Shape; s: string; r: number; label: string }[] = [
@@ -50,10 +51,15 @@ export function MetadataPage() {
         // 1) 룸이 아직 없으면 임시 생성 (실제 흐름은 메타 완료 시 호출도 OK).
         let roomId = flow.roomId;
         if (!roomId) {
-          const room = await createRoom({ title: tripName });
+          const room = await createRoom({
+            title: tripName,
+            markerEmoji: marker.emoji,
+            markerBgColor: marker.bgColor,
+            markerShape: marker.shape,
+          });
           if (cancelled) return;
           roomId = room.id;
-          setFlow({ roomId });
+          setFlow({ roomId, inviteToken: room.inviteToken });
         }
         // 2) presigned-urls (1~50개씩 배치). mock에서는 모두 한 번에.
         const totalFiles = fileCount;
@@ -118,9 +124,9 @@ export function MetadataPage() {
   };
 
   const inviteUrl = useMemo(() => {
-    const token = flow.roomId ? flow.roomId.slice(-6) : '4Kj9aB';
+    const token = flow.inviteToken ?? '4Kj9aB';
     return `yht.app/i/${token}`;
-  }, [flow.roomId]);
+  }, [flow.inviteToken]);
 
   const onCopyInvite = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
