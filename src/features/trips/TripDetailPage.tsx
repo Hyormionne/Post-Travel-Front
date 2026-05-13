@@ -7,7 +7,7 @@ import { PhotoTile } from '../../components/PhotoTile';
 import { SectionTitle } from '../../components/ui';
 import { MainShell } from '../../components/MainShell';
 import {
-  INK, INK_SOFT, INK_FAINT, PAPER_2, SAGE, TERRA,
+  INK, INK_SOFT, INK_FAINT, PAPER, PAPER_2, SAGE, TERRA,
   FONT_HAND, FONT_UI, FONT_MONO,
 } from '../../theme/tokens';
 import { getRoom, listTrips, resolveMemberName } from './api';
@@ -17,9 +17,38 @@ import { listBlogs } from '../blog/api';
 import type { Room } from '../../types/room';
 import type { Cluster } from '../../types/cluster';
 import type { Blog } from '../../types/blog';
-import { MOCK_PHOTOS } from '../../mocks/data';
+import { MOCK_PHOTOS, MOCK_USER } from '../../mocks/data';
 
 type Tab = '블로그' | '폴더';
+
+const AUTHOR_COLORS = [SAGE, TERRA, '#b8a279', '#9ba4ad', '#a3b491'];
+
+function authorColor(userId: string): string {
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) hash = (hash * 31 + userId.charCodeAt(i)) | 0;
+  return AUTHOR_COLORS[Math.abs(hash) % AUTHOR_COLORS.length];
+}
+
+function AuthorAvatar({ name, color = SAGE, size = 22 }: { name: string; color?: string; size?: number }) {
+  return (
+    <div style={{
+      position: 'absolute', right: -4, bottom: -4,
+      padding: 2, borderRadius: '50%',
+      background: PAPER,
+      boxShadow: '0 2px 4px rgba(0,0,0,0.16)',
+    }}>
+      <div style={{
+        width: size, height: size, borderRadius: '50%',
+        background: color, color: 'white',
+        border: `1.2px solid ${INK}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: FONT_HAND, fontSize: Math.round(size * 0.6),
+      }}>
+        {name[0]}
+      </div>
+    </div>
+  );
+}
 
 export function TripDetailPage() {
   const router = useRouter();
@@ -59,6 +88,21 @@ export function TripDetailPage() {
     for (const p of MOCK_PHOTOS) idx[p.id] = p.aiKeywords;
     return idx;
   }, []);
+
+  const sortedBlogs = useMemo(() => {
+    const me = MOCK_USER.id;
+    return [...blogs].sort((a, b) => {
+      const aMe = a.authorId === me ? 0 : 1;
+      const bMe = b.authorId === me ? 0 : 1;
+      if (aMe !== bMe) return aMe - bMe;
+      if (aMe === 1) {
+        const aName = resolveMemberName(a.authorId);
+        const bName = resolveMemberName(b.authorId);
+        return aName.localeCompare(bName, 'ko');
+      }
+      return 0;
+    });
+  }, [blogs]);
 
   const members = room?.members ?? [];
   const memberNames = members.map((m) => resolveMemberName(m.userId));
@@ -156,14 +200,19 @@ export function TripDetailPage() {
           <>
             <SectionTitle hint={`${blogs.length}개`} style={{ marginTop: 12, marginBottom: 8 }}>블로그</SectionTitle>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {blogs.map((b, i) => {
+              {sortedBlogs.map((b, i) => {
                 const published = b.publishedAt != null;
+                const aName = resolveMemberName(b.authorId);
+                const aColor = authorColor(b.authorId);
                 return (
                   <div key={b.id} onClick={() => onOpenBlog(b)} style={{
                     display: 'flex', gap: 10, padding: 10, borderRadius: 10,
                     border: `1px solid ${INK_FAINT}`, alignItems: 'center', cursor: 'pointer',
                   }}>
-                    <PhotoTile w={56} h={56} label={String.fromCharCode(65 + i)} />
+                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                      <PhotoTile w={56} h={56} label={String.fromCharCode(65 + i)} />
+                      <AuthorAvatar name={aName} color={aColor} />
+                    </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: 11 }}>{b.title}</div>
                       <div style={{ fontFamily: FONT_MONO, fontSize: 8, color: INK_SOFT, marginTop: 2 }}>

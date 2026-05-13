@@ -1,7 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Image from '@tiptap/extension-image';
+import Placeholder from '@tiptap/extension-placeholder';
 import { Screen } from '../../components/Screen';
 import { PhotoTile } from '../../components/PhotoTile';
 import { Btn, Pill, SectionTitle } from '../../components/ui';
@@ -9,46 +13,12 @@ import {
   INK, INK_SOFT, INK_FAINT, PAPER, PAPER_2, SAGE, TERRA,
   FONT_HAND, FONT_UI, FONT_MONO,
 } from '../../theme/tokens';
-import type { Blog, BlogVisibility } from '../../types/blog';
-import { createBlog, getBlog, patchBlog, publishBlog, deleteBlog } from './api';
+import type { Blog } from '../../types/blog';
+import { createBlog, getBlog, patchBlog, publishBlog } from './api';
 import { useDebouncedCallback } from './hooks/useDebouncedCallback';
 import { MOCK_PHOTOS } from '../../mocks/data';
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
-
-const VISIBILITIES: { v: BlogVisibility; label: string }[] = [
-  { v: 'PRIVATE', label: '비공개' },
-  { v: 'ROOM', label: '여행 멤버' },
-  { v: 'PUBLIC', label: '공개' },
-];
-
-// 본문 마크다운 wrap 헬퍼 — textarea의 선택 영역을 prefix/suffix로 감싼다.
-function wrapSelection(
-  ta: HTMLTextAreaElement,
-  prefix: string,
-  suffix: string,
-  emptyHint: string,
-): { value: string; cursorStart: number; cursorEnd: number } {
-  const { selectionStart: s, selectionEnd: e, value } = ta;
-  const sel = value.slice(s, e);
-  const inner = sel.length > 0 ? sel : emptyHint;
-  const next = value.slice(0, s) + prefix + inner + suffix + value.slice(e);
-  const startCursor = s + prefix.length;
-  const endCursor = startCursor + inner.length;
-  return { value: next, cursorStart: startCursor, cursorEnd: endCursor };
-}
-
-function prefixCurrentLine(ta: HTMLTextAreaElement, prefix: string) {
-  const { selectionStart: s, value } = ta;
-  const lineStart = value.lastIndexOf('\n', s - 1) + 1;
-  // 이미 같은 prefix면 토글로 제거
-  if (value.slice(lineStart, lineStart + prefix.length) === prefix) {
-    const next = value.slice(0, lineStart) + value.slice(lineStart + prefix.length);
-    return { value: next, cursorStart: Math.max(lineStart, s - prefix.length), cursorEnd: Math.max(lineStart, s - prefix.length) };
-  }
-  const next = value.slice(0, lineStart) + prefix + value.slice(lineStart);
-  return { value: next, cursorStart: s + prefix.length, cursorEnd: s + prefix.length };
-}
 
 export function EditorPage() {
   const router = useRouter();
@@ -58,16 +28,54 @@ export function EditorPage() {
 
   const [blog, setBlog] = useState<Blog | null>(null);
   const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
   const [save, setSave] = useState<SaveState>('idle');
   const [publishing, setPublishing] = useState(false);
-  const [confirming, setConfirming] = useState(false);
-  const [visibility, setVisibility] = useState<BlogVisibility>('ROOM');
   const [aiSuggestionDismissed, setAiSuggestionDismissed] = useState(false);
   const [photoPickerOpen, setPhotoPickerOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [toolbarFormat, setToolbarFormat] = useState({ bold: false, italic: false, heading: false });
   const initialized = useRef(false);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: { levels: [2, 3] },
+      }),
+      Image.configure({
+        inline: false,
+        HTMLAttributes: { style: 'max-width:100%;border-radius:6px;margin:8px 0;' },
+      }),
+      Placeholder.configure({
+        placeholder: '여기에 본문을 작성하거나 AI 초안을 편집하세요...',
+      }),
+    ],
+    editorProps: {
+      attributes: {
+        class: 'tiptap-editor',
+        style: [
+          `font-family:${FONT_UI}`,
+          'font-size:12px',
+          `color:${INK}`,
+          'line-height:1.65',
+          'outline:none',
+          'min-height:140px',
+          'padding:0',
+          '-webkit-tap-highlight-color:transparent',
+        ].join(';'),
+      },
+    },
+    onUpdate({ editor: ed }) {
+      if (!initialized.current) return;
+      setSave('dirty');
+      debouncedSave({ content: ed.getHTML() });
+    },
+    onSelectionUpdate({ editor: ed }) {
+      setToolbarFormat({
+        bold: ed.isActive('bold'),
+        italic: ed.isActive('italic'),
+        heading: ed.isActive('heading'),
+      });
+    },
+  });
 
   // 진입: blogId 있으면 GET, 없으면 roomId로 새 블로그 생성
   useEffect(() => {
@@ -85,22 +93,21 @@ export function EditorPage() {
         if (cancelled) return;
         setBlog(b);
         setTitle(b.title);
-        setContent(b.content);
-        setVisibility(b.visibility);
-        // load 직후 dirty 효과를 피하기 위해 한 tick 뒤에 initialized true
+        if (editor && !editor.isDestroyed) {
+          editor.commands.setContent(b.content || '');
+        }
         setTimeout(() => {
           initialized.current = true;
           setSave('saved');
         }, 0);
       } catch {
-        // 빈 상태 — UI 로딩 메시지로 처리
+        // 빈 상태
       }
     }
     load();
-    return () => {
-      cancelled = true;
-    };
-  }, [blogIdParam, roomIdParam]);
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blogIdParam, roomIdParam, editor]);
 
   const debouncedSave = useDebouncedCallback(async (next: { title?: string; content?: string }) => {
     if (!blog) return;
@@ -114,25 +121,24 @@ export function EditorPage() {
     }
   }, 1200);
 
+  // title 변경 시 debounce save
   useEffect(() => {
     if (!initialized.current || !blog) return;
     setSave('dirty');
-    debouncedSave({ title, content });
+    debouncedSave({ title });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, content]);
+  }, [title]);
 
   const onBack = () => router.back();
 
-  const onPublishConfirm = async () => {
-    if (!blog) return;
+  const onPublish = async () => {
+    if (!blog || publishing) return;
     setPublishing(true);
     try {
-      if (visibility !== blog.visibility) {
-        await patchBlog(blog.id, { visibility });
+      if (blog.visibility !== 'ROOM') {
+        await patchBlog(blog.id, { visibility: 'ROOM' });
       }
-      const published = await publishBlog(blog.id);
-      setBlog(published);
-      setConfirming(false);
+      await publishBlog(blog.id);
       router.push('/');
     } finally {
       setPublishing(false);
@@ -140,19 +146,16 @@ export function EditorPage() {
   };
 
   const onAcceptAiSuggestion = async () => {
-    if (!blog) return;
+    if (!blog || !editor) return;
     setAiSuggestionDismissed(true);
-    // photoIds를 보내면 기존 연결 전부 교체 — 기존 + 새 합쳐서 전송.
     const existing = blog.photos.map((p) => p.photoId);
     const additions = MOCK_PHOTOS.filter((p) => p.sceneLabel === 'snow').slice(0, 3).map((p) => p.id);
     const merged = Array.from(new Set([...existing, ...additions]));
     const updated = await patchBlog(blog.id, { photoIds: merged });
     setBlog(updated);
-    // 본문에도 AI text 한 단락 추가
-    setContent((c) =>
-      c + (c.endsWith('\n') || c === '' ? '' : '\n\n') +
-      '비에이의 풍경 — 자작나무 길은 바람도 잠시 멈추는 듯했다. 눈 쌓인 들판을 따라 한참을 걸었다.'
-    );
+    editor.chain().focus().insertContent(
+      '<p>비에이의 풍경 — 자작나무 길은 바람도 잠시 멈추는 듯했다. 눈 쌓인 들판을 따라 한참을 걸었다.</p>'
+    ).run();
   };
 
   // 사진 제거
@@ -174,46 +177,14 @@ export function EditorPage() {
   };
 
   // 툴바 핸들러
-  const applyEdit = (edit: { value: string; cursorStart: number; cursorEnd: number }) => {
-    setContent(edit.value);
-    // 다음 tick에 cursor 복원
-    requestAnimationFrame(() => {
-      const ta = textareaRef.current;
-      if (!ta) return;
-      ta.focus();
-      ta.setSelectionRange(edit.cursorStart, edit.cursorEnd);
-    });
-  };
-  const onBold = () => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    applyEdit(wrapSelection(ta, '**', '**', '강조'));
-  };
-  const onItalic = () => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    applyEdit(wrapSelection(ta, '*', '*', '기울임'));
-  };
-  const onHeading = () => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    applyEdit(prefixCurrentLine(ta, '## '));
-  };
+  const onBold = useCallback(() => { editor?.chain().focus().toggleBold().run(); }, [editor]);
+  const onItalic = useCallback(() => { editor?.chain().focus().toggleItalic().run(); }, [editor]);
+  const onHeading = useCallback(() => { editor?.chain().focus().toggleHeading({ level: 2 }).run(); }, [editor]);
+  const onBulletList = useCallback(() => { editor?.chain().focus().toggleBulletList().run(); }, [editor]);
+  const onBlockquote = useCallback(() => { editor?.chain().focus().toggleBlockquote().run(); }, [editor]);
   const onPickImage = () => setPhotoPickerOpen(true);
 
-  const onDeleteBlog = async () => {
-    if (!blog) return;
-    if (typeof window !== 'undefined' && !window.confirm('이 블로그를 삭제할까요?')) return;
-    setDeleting(true);
-    try {
-      await deleteBlog(blog.id);
-      router.push('/');
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  // 저장 성공 시 2초 후 자동 숨김
+  // 저장 표시 2초 후 자동 숨김
   useEffect(() => {
     if (save !== 'saved') return;
     const timer = setTimeout(() => setSave('idle'), 2000);
@@ -224,11 +195,9 @@ export function EditorPage() {
   const saveLabel = save === 'saving' ? '저장 중...' : save === 'error' ? '저장 실패' : '저장됨';
   const saveColor = save === 'error' ? TERRA : SAGE;
 
-  // hero photo: blog.photos[0]가 있으면 그 라벨로, 없으면 'A'
   const heroLabel = blog?.photos?.[0]?.photoId?.slice(-1) ?? 'A';
   const restPhotos = (blog?.photos ?? []).slice(1);
 
-  // picker에 보여줄 후보: 블로그에 아직 안 들어간 mock 사진들
   const pickerCandidates = useMemo(() => {
     const used = new Set(blog?.photos.map((p) => p.photoId) ?? []);
     return MOCK_PHOTOS.filter((p) => !used.has(p.id)).slice(0, 12);
@@ -236,6 +205,8 @@ export function EditorPage() {
 
   return (
     <Screen scrollable>
+      <style>{tiptapStyles}</style>
+
       {/* Editor header */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 10,
@@ -244,7 +215,7 @@ export function EditorPage() {
         padding: '7px 14px 11px', display: 'flex',
         alignItems: 'center', justifyContent: 'space-between',
       }}>
-        <span onClick={onBack} style={{ fontSize: 16, cursor: 'pointer' }}>←</span>
+        <span onClick={onBack} style={{ fontSize: 16, cursor: 'pointer', padding: '4px 8px 4px 0' }}>←</span>
         {showSaveIndicator && (
           <div style={{
             position: 'absolute', left: '50%', transform: 'translateX(-50%)',
@@ -255,10 +226,11 @@ export function EditorPage() {
             {saveLabel}
           </div>
         )}
-        <Btn primary onClick={() => setConfirming(true)} style={{ padding: '6px 12px', fontSize: 11 }}>
-          {blog?.publishedAt ? '재발행' : '최종 발행'}
+        <Btn primary onClick={onPublish} style={{ padding: '6px 12px', fontSize: 11, opacity: publishing ? 0.7 : 1 }}>
+          {publishing ? '발행 중...' : blog?.publishedAt ? '재발행' : '최종 발행'}
         </Btn>
       </div>
+
       {/* Body */}
       <div style={{ padding: '12px 16px 100px' }}>
         <input
@@ -280,6 +252,7 @@ export function EditorPage() {
             ? `${new Date(blog.createdAt).toLocaleDateString()} · 사진 ${blog.photos.length} · ${blog.publishedAt ? '발행됨' : 'AI 초안 ✦'}`
             : '로딩 중…'}
         </div>
+
         {/* Hero photo */}
         {blog && blog.photos.length > 0 ? (
           <div style={{ position: 'relative', marginBottom: 6 }}>
@@ -313,25 +286,14 @@ export function EditorPage() {
         <div style={{ fontFamily: FONT_UI, fontSize: 9, color: INK_SOFT, marginBottom: 14 }}>
           비에이 ▸ 흰 자작나무 길
         </div>
-        {/* Editable content */}
-        <textarea
-          ref={textareaRef}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="여기에 본문을 작성하거나 AI 초안을 편집하세요."
-          rows={8}
-          style={{
-            width: '100%', boxSizing: 'border-box',
-            padding: 8, border: `1.2px dashed ${INK_FAINT}`, borderRadius: 6,
-            marginBottom: 10, minHeight: 110, resize: 'vertical',
-            fontFamily: FONT_UI, fontSize: 11, color: INK, lineHeight: 1.55,
-            outline: 'none', background: 'transparent',
-          }}
-        />
+
+        {/* Tiptap editor */}
+        <EditorContent editor={editor} />
+
         {/* Photo grid (rest) */}
         {restPhotos.length > 0 && (
           <>
-            <SectionTitle hint={`${restPhotos.length}장`} style={{ marginTop: 4 }}>사진</SectionTitle>
+            <SectionTitle hint={`${restPhotos.length}장`} style={{ marginTop: 12 }}>사진</SectionTitle>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginBottom: 8 }}>
               {restPhotos.map((p) => (
                 <div key={p.photoId} style={{ position: 'relative' }}>
@@ -363,6 +325,7 @@ export function EditorPage() {
             </div>
           </>
         )}
+
         {/* AI suggestion */}
         {!aiSuggestionDismissed && blog && (
           <div style={{
@@ -373,7 +336,7 @@ export function EditorPage() {
           }}>
             <span style={{ fontSize: 14 }}>✦</span>
             <span style={{ fontFamily: FONT_HAND, fontSize: 13, flex: 1 }}>
-              여기에 '비에이의 풍경' 폴더 사진 더 넣을까요?
+              여기에 &apos;비에이의 풍경&apos; 폴더 사진 더 넣을까요?
             </span>
             <span onClick={onAcceptAiSuggestion} style={{ cursor: 'pointer' }}>
               <Pill color={SAGE} solid>예</Pill>
@@ -386,62 +349,7 @@ export function EditorPage() {
           </div>
         )}
       </div>
-      {/* Publish confirm */}
-      {confirming && (
-        <div
-          onClick={() => !publishing && setConfirming(false)}
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 50, animation: 'yh-fade-in 200ms ease-out',
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: 280, background: PAPER, border: `1.2px solid ${INK}`,
-              borderRadius: 12, padding: 14,
-              boxShadow: '0 12px 28px rgba(0,0,0,0.18)',
-              animation: 'yh-toast-in 240ms ease-out',
-            }}
-          >
-            <div style={{ fontFamily: FONT_UI, fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
-              블로그 발행
-            </div>
-            <div style={{ fontFamily: FONT_MONO, fontSize: 9, color: INK_SOFT, marginBottom: 10 }}>
-              공개 범위를 선택하세요. 발행 후에도 변경 가능합니다.
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-              {VISIBILITIES.map((v) => {
-                const active = visibility === v.v;
-                return (
-                  <div
-                    key={v.v}
-                    onClick={() => setVisibility(v.v)}
-                    style={{
-                      padding: '8px 10px', borderRadius: 8,
-                      border: `${active ? 1.4 : 1}px solid ${active ? INK : INK_FAINT}`,
-                      background: active ? PAPER_2 : 'transparent',
-                      cursor: 'pointer',
-                      fontFamily: FONT_UI, fontSize: 11, fontWeight: active ? 600 : 400,
-                    }}
-                  >
-                    {v.label}
-                  </div>
-                );
-              })}
-            </div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <Btn onClick={() => setConfirming(false)} style={{ flex: 1 }}>
-                취소
-              </Btn>
-              <Btn primary onClick={onPublishConfirm} style={{ flex: 1, opacity: publishing ? 0.7 : 1 }}>
-                {publishing ? '발행 중...' : '발행'}
-              </Btn>
-            </div>
-          </div>
-        </div>
-      )}
+
       {/* Photo picker */}
       {photoPickerOpen && (
         <PhotoPicker
@@ -450,29 +358,88 @@ export function EditorPage() {
           onClose={() => setPhotoPickerOpen(false)}
         />
       )}
+
       {/* Bottom toolbar */}
       <div style={{
         position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
-        width: '100%', maxWidth: 390, height: 44,
+        width: '100%', maxWidth: 390, height: 48,
         background: PAPER, borderTop: `1px solid ${INK_FAINT}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-around',
+        display: 'flex', alignItems: 'center',
+        padding: '0 8px',
         fontFamily: FONT_MONO, fontSize: 11, color: INK_SOFT,
         zIndex: 20,
       }}>
-        <span onClick={onBold} title="굵게 (**텍스트**)" style={{ cursor: 'pointer', padding: '8px 12px', fontWeight: 700 }}>B</span>
-        <span onClick={onItalic} title="기울임 (*텍스트*)" style={{ cursor: 'pointer', padding: '8px 12px', fontStyle: 'italic' }}>I</span>
-        <span onClick={onHeading} title="제목 (## 줄)" style={{ cursor: 'pointer', padding: '8px 12px', fontWeight: 700 }}>H</span>
-        <span onClick={onPickImage} title="사진 추가" style={{ cursor: 'pointer', padding: '8px 12px' }}>🖼</span>
-        <span
+        <ToolbarBtn
+          label="B"
+          active={toolbarFormat.bold}
+          onClick={onBold}
+          style={{ fontWeight: 700 }}
+        />
+        <ToolbarBtn
+          label="I"
+          active={toolbarFormat.italic}
+          onClick={onItalic}
+          style={{ fontStyle: 'italic' }}
+        />
+        <ToolbarBtn
+          label="H"
+          active={toolbarFormat.heading}
+          onClick={onHeading}
+          style={{ fontWeight: 700 }}
+        />
+        <ToolbarBtn
+          label="—"
+          active={false}
+          onClick={onBulletList}
+          title="목록"
+        />
+        <ToolbarBtn
+          label="❝"
+          active={false}
+          onClick={onBlockquote}
+          title="인용"
+        />
+        <div style={{ width: 1, height: 20, background: INK_FAINT, margin: '0 2px' }} />
+        <ToolbarBtn label="🖼" active={false} onClick={onPickImage} title="사진 추가" />
+        <ToolbarBtn
+          label="✦"
+          active={false}
           onClick={() => !aiSuggestionDismissed ? onAcceptAiSuggestion() : setAiSuggestionDismissed(false)}
           title="AI 보강"
-          style={{ cursor: 'pointer', padding: '8px 12px' }}
-        >✦</span>
+          style={{ color: TERRA }}
+        />
       </div>
     </Screen>
   );
 }
 
+/* ── 툴바 버튼 ── */
+function ToolbarBtn({ label, active, onClick, title, style }: {
+  label: string; active: boolean; onClick: () => void; title?: string; style?: React.CSSProperties;
+}) {
+  return (
+    <span
+      onClick={onClick}
+      title={title}
+      style={{
+        cursor: 'pointer',
+        padding: '8px 10px',
+        borderRadius: 6,
+        background: active ? PAPER_2 : 'transparent',
+        color: active ? INK : INK_SOFT,
+        fontFamily: FONT_MONO,
+        fontSize: 13,
+        transition: 'background 120ms',
+        WebkitTapHighlightColor: 'transparent',
+        ...style,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+/* ── 사진 선택 바텀시트 ── */
 interface PhotoPickerProps {
   candidates: Array<{ id: string }>;
   onPick: (ids: string[]) => void;
@@ -532,3 +499,88 @@ function PhotoPicker({ candidates, onPick, onClose }: PhotoPickerProps) {
     </div>
   );
 }
+
+/* ── Tiptap 스타일 (인라인 CSS) ── */
+const tiptapStyles = `
+  .tiptap-editor {
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  .tiptap-editor:focus {
+    outline: none;
+  }
+  .tiptap-editor p {
+    margin: 0 0 0.6em 0;
+  }
+  .tiptap-editor h2 {
+    font-family: ${FONT_HAND};
+    font-size: 18px;
+    font-weight: 600;
+    margin: 1em 0 0.4em 0;
+    color: ${INK};
+  }
+  .tiptap-editor h3 {
+    font-family: ${FONT_HAND};
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0.8em 0 0.3em 0;
+    color: ${INK};
+  }
+  .tiptap-editor strong {
+    font-weight: 600;
+  }
+  .tiptap-editor em {
+    font-style: italic;
+  }
+  .tiptap-editor ul, .tiptap-editor ol {
+    padding-left: 1.2em;
+    margin: 0.4em 0;
+  }
+  .tiptap-editor li {
+    margin: 0.15em 0;
+  }
+  .tiptap-editor blockquote {
+    border-left: 3px solid ${SAGE};
+    margin: 0.6em 0;
+    padding: 4px 0 4px 12px;
+    color: ${INK_SOFT};
+    font-style: italic;
+  }
+  .tiptap-editor hr {
+    border: none;
+    border-top: 1px solid ${INK_FAINT};
+    margin: 1em 0;
+  }
+  .tiptap-editor img {
+    max-width: 100%;
+    border-radius: 6px;
+    margin: 8px 0;
+  }
+  .tiptap-editor .is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    color: ${INK_FAINT};
+    pointer-events: none;
+    height: 0;
+    font-family: ${FONT_UI};
+    font-size: 12px;
+  }
+  .tiptap-editor code {
+    font-family: ${FONT_MONO};
+    font-size: 11px;
+    background: ${PAPER_2};
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  .tiptap-editor pre {
+    background: ${PAPER_2};
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 0.6em 0;
+    overflow-x: auto;
+  }
+  .tiptap-editor pre code {
+    background: none;
+    padding: 0;
+  }
+`;
