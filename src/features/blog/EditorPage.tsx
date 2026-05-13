@@ -8,7 +8,7 @@ import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Screen } from '../../components/Screen';
 import { PhotoTile } from '../../components/PhotoTile';
-import { Btn, Pill, SectionTitle } from '../../components/ui';
+import { Btn, SectionTitle } from '../../components/ui';
 import {
   INK, INK_SOFT, INK_FAINT, PAPER, PAPER_2, SAGE, TERRA,
   FONT_HAND, FONT_UI, FONT_MONO,
@@ -30,7 +30,6 @@ export function EditorPage() {
   const [title, setTitle] = useState('');
   const [save, setSave] = useState<SaveState>('idle');
   const [publishing, setPublishing] = useState(false);
-  const [aiSuggestionDismissed, setAiSuggestionDismissed] = useState(false);
   const [photoPickerOpen, setPhotoPickerOpen] = useState(false);
   const [toolbarFormat, setToolbarFormat] = useState({ bold: false, italic: false, heading: false });
   const initialized = useRef(false);
@@ -143,19 +142,6 @@ export function EditorPage() {
     } finally {
       setPublishing(false);
     }
-  };
-
-  const onAcceptAiSuggestion = async () => {
-    if (!blog || !editor) return;
-    setAiSuggestionDismissed(true);
-    const existing = blog.photos.map((p) => p.photoId);
-    const additions = MOCK_PHOTOS.filter((p) => p.sceneLabel === 'snow').slice(0, 3).map((p) => p.id);
-    const merged = Array.from(new Set([...existing, ...additions]));
-    const updated = await patchBlog(blog.id, { photoIds: merged });
-    setBlog(updated);
-    editor.chain().focus().insertContent(
-      '<p>비에이의 풍경 — 자작나무 길은 바람도 잠시 멈추는 듯했다. 눈 쌓인 들판을 따라 한참을 걸었다.</p>'
-    ).run();
   };
 
   // 사진 제거
@@ -326,28 +312,6 @@ export function EditorPage() {
           </>
         )}
 
-        {/* AI suggestion */}
-        {!aiSuggestionDismissed && blog && (
-          <div style={{
-            marginTop: 8,
-            padding: 10, borderRadius: 10, background: PAPER_2,
-            border: `1px dashed ${SAGE}`,
-            display: 'flex', alignItems: 'center', gap: 8,
-          }}>
-            <span style={{ fontSize: 14 }}>✦</span>
-            <span style={{ fontFamily: FONT_HAND, fontSize: 13, flex: 1 }}>
-              여기에 &apos;비에이의 풍경&apos; 폴더 사진 더 넣을까요?
-            </span>
-            <span onClick={onAcceptAiSuggestion} style={{ cursor: 'pointer' }}>
-              <Pill color={SAGE} solid>예</Pill>
-            </span>
-            <span
-              onClick={() => setAiSuggestionDismissed(true)}
-              style={{ cursor: 'pointer', color: INK_SOFT, fontSize: 11, marginLeft: 2 }}
-              aria-label="제안 닫기"
-            >×</span>
-          </div>
-        )}
       </div>
 
       {/* Photo picker */}
@@ -401,13 +365,6 @@ export function EditorPage() {
         />
         <div style={{ width: 1, height: 20, background: INK_FAINT, margin: '0 2px' }} />
         <ToolbarBtn label="🖼" active={false} onClick={onPickImage} title="사진 추가" />
-        <ToolbarBtn
-          label="✦"
-          active={false}
-          onClick={() => !aiSuggestionDismissed ? onAcceptAiSuggestion() : setAiSuggestionDismissed(false)}
-          title="AI 보강"
-          style={{ color: TERRA }}
-        />
       </div>
     </Screen>
   );
