@@ -11,6 +11,8 @@ import { INK, INK_SOFT, INK_FAINT, SAGE, TERRA, PAPER, PAPER_2, FONT_HAND, FONT_
 import { listTrips } from '../trips/api';
 import type { TripSummary } from '../../mocks/data';
 import { useNotifications, markAllRead, type Notification } from '../../store/notifications';
+import { getUser, clearAuth } from '../../store/auth';
+import { logout } from '../auth/api';
 
 const OpenMapBg = dynamic(
   () => import('../../components/OpenMapBg').then((m) => m.OpenMapBg),
@@ -25,7 +27,11 @@ export function MainMapPage() {
   const [selected, setSelected] = useState<number | null>(null);
   const [dismissedToastIds, setDismissedToastIds] = useState<string[]>([]);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [user, setUser] = useState<ReturnType<typeof getUser>>(null);
   const { list, unread, markRead } = useNotifications();
+
+  useEffect(() => { setUser(getUser()); }, []);
 
   useEffect(() => {
     listTrips().then(setTrips).catch(() => {});
@@ -60,8 +66,84 @@ export function MainMapPage() {
       />
       <FrostedHeader
         rightBadge={unread > 0}
-        onBellClick={() => { setNotifOpen(true); setSelected(null); }}
+        profile={user?.profileEmoji ?? '나'}
+        onProfileClick={() => { setProfileMenuOpen((v) => !v); setNotifOpen(false); }}
+        onBellClick={() => { setNotifOpen(true); setSelected(null); setProfileMenuOpen(false); }}
       />
+
+      {/* 프로필 드롭다운 메뉴 */}
+      {profileMenuOpen && (
+        <>
+          <div
+            onClick={() => setProfileMenuOpen(false)}
+            style={{ position: 'absolute', inset: 0, zIndex: 20 }}
+          />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'absolute', top: 80, left: 8, width: 200,
+              background: PAPER, border: `1.4px solid ${INK}`, borderRadius: 14,
+              padding: '12px 14px', zIndex: 30,
+              boxShadow: '0 12px 28px rgba(0,0,0,0.18)',
+            }}
+          >
+            {/* 유저 정보 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${INK_FAINT}` }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: '50%',
+                background: PAPER_2, border: `1.2px solid ${INK}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 20, flexShrink: 0,
+              }}>
+                {user?.profileEmoji ?? '✈'}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {user?.nickname ?? '여행자'}
+                </div>
+                <div style={{ fontFamily: FONT_MONO, fontSize: 8, color: INK_SOFT, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {user?.email ?? ''}
+                </div>
+              </div>
+            </div>
+
+            {/* 프로필 수정 버튼 */}
+            <button
+              onClick={() => { setProfileMenuOpen(false); router.push('/profile-edit'); }}
+              style={{
+                width: '100%', padding: '8px 10px',
+                background: 'transparent', border: `1px solid ${INK_FAINT}`,
+                borderRadius: 8, cursor: 'pointer',
+                fontFamily: FONT_UI, fontSize: 11, fontWeight: 500, color: INK,
+                display: 'flex', alignItems: 'center', gap: 6,
+                textAlign: 'left', marginBottom: 6,
+              }}
+            >
+              <span style={{ fontSize: 13 }}>✎</span> 프로필 수정
+            </button>
+
+            {/* 로그아웃 버튼 */}
+            <button
+              onClick={async () => {
+                setProfileMenuOpen(false);
+                await logout().catch(() => {});
+                clearAuth();
+                router.replace('/login');
+              }}
+              style={{
+                width: '100%', padding: '8px 10px',
+                background: 'transparent', border: `1px solid ${INK_FAINT}`,
+                borderRadius: 8, cursor: 'pointer',
+                fontFamily: FONT_UI, fontSize: 11, fontWeight: 500, color: INK,
+                display: 'flex', alignItems: 'center', gap: 6,
+                textAlign: 'left',
+              }}
+            >
+              <span style={{ fontSize: 13 }}>↩</span> 로그아웃
+            </button>
+          </div>
+        </>
+      )}
       <ZoomControls />
       <MainShell activeTab="map" />
 

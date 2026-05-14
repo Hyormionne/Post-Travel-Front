@@ -24,8 +24,8 @@ export function ThumbPin({ x, y, label, pending, size = 32 }: ThumbPinProps) {
 }
 
 // ── FrostedHeader ──
-interface FrostedHeaderProps { rightBadge?: boolean; profile?: string; onBellClick?: () => void }
-export function FrostedHeader({ rightBadge, profile = '나', onBellClick }: FrostedHeaderProps) {
+interface FrostedHeaderProps { rightBadge?: boolean; profile?: string; onBellClick?: () => void; onProfileClick?: () => void }
+export function FrostedHeader({ rightBadge, profile = '나', onBellClick, onProfileClick }: FrostedHeaderProps) {
   return (
     <div style={{
       position: 'absolute', top: 28, left: 8, right: 8, height: 44,
@@ -34,12 +34,16 @@ export function FrostedHeader({ rightBadge, profile = '나', onBellClick }: Fros
       background: 'rgba(246,241,230,0.7)', backdropFilter: 'blur(8px)',
       border: `1px solid ${INK_FAINT}`, zIndex: 10,
     }}>
-      <div style={{
-        width: 28, height: 28, borderRadius: '50%',
-        border: `1.2px solid ${INK}`, background: PAPER_2,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: FONT_HAND, fontSize: 12,
-      }}>{profile}</div>
+      <div
+        onClick={onProfileClick}
+        style={{
+          width: 28, height: 28, borderRadius: '50%',
+          border: `1.2px solid ${INK}`, background: PAPER_2,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: FONT_HAND, fontSize: 12,
+          cursor: onProfileClick ? 'pointer' : 'default',
+        }}
+      >{profile}</div>
       <div
         onClick={onBellClick}
         style={{ position: 'relative', cursor: onBellClick ? 'pointer' : 'default' }}
