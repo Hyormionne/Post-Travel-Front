@@ -1,6 +1,6 @@
 import { setTokens, setUser, setHasProfile, getRefreshToken, type AuthUser } from '../../store/auth';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:3000';
 
 interface GoogleLoginResponse {
   accessToken: string;
@@ -46,6 +46,39 @@ export async function loginWithGoogle(idToken: string): Promise<{ hasProfile: bo
   setUser(userFields);
   setHasProfile(hasProfile);
   return { hasProfile };
+}
+
+interface AuthTokenResponse {
+  accessToken: string;
+  refreshToken: string;
+}
+
+// 이메일 로그인. 토큰 저장 + /users/me로 유저 정보 가져옴.
+export async function emailLogin(email: string, password: string): Promise<void> {
+  const data = await post<AuthTokenResponse>('/auth/login', { email, password });
+  setTokens(data.accessToken, data.refreshToken);
+  const res = await fetch(`${BASE_URL}/users/me`, {
+    headers: { Authorization: `Bearer ${data.accessToken}` },
+  });
+  if (res.ok) {
+    const user = (await res.json()) as AuthUser;
+    setUser(user);
+  }
+  setHasProfile(true);
+}
+
+// 이메일 회원가입. 토큰 저장 + /users/me로 유저 정보 가져옴.
+export async function emailSignup(email: string, password: string, nickname: string): Promise<void> {
+  const data = await post<AuthTokenResponse>('/auth/signup', { email, password, nickname });
+  setTokens(data.accessToken, data.refreshToken);
+  const res = await fetch(`${BASE_URL}/users/me`, {
+    headers: { Authorization: `Bearer ${data.accessToken}` },
+  });
+  if (res.ok) {
+    const user = (await res.json()) as AuthUser;
+    setUser(user);
+  }
+  setHasProfile(true);
 }
 
 // 개발용 목 로그인 — 백엔드 없이 흐름 확인.

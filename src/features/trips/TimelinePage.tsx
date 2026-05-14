@@ -7,8 +7,7 @@ import { PhotoTile } from '../../components/PhotoTile';
 import { MainShell } from '../../components/MainShell';
 import { INK, INK_SOFT, INK_FAINT, PAPER, PAPER_2, TERRA, FONT_HAND, FONT_MONO } from '../../theme/tokens';
 import { listTrips } from './api';
-import type { TripSummary } from '../../mocks/data';
-import { MOCK_WRITING_IN_PROGRESS } from '../../mocks/data';
+import type { TripSummary } from '../../types/room';
 
 export function TimelinePage() {
   const router = useRouter();
@@ -46,7 +45,7 @@ export function TimelinePage() {
       <div style={{ padding: '14px 16px 80px' }}>
         <div style={{ fontFamily: FONT_HAND, fontSize: 22, lineHeight: 1, marginBottom: 4 }}>나의 여행들</div>
         <div style={{ fontFamily: FONT_MONO, fontSize: 9, color: INK_SOFT, marginBottom: 14 }}>
-          총 {trips.length + 1} · 시간 역순 ▾
+          총 {trips.length} · 시간 역순 ▾
         </div>
 
         {groups.map(([year, list], gi) => (
@@ -93,29 +92,6 @@ export function TimelinePage() {
               </div>
             ))}
 
-            {/* In-progress 카드는 2025 그룹 끝에만 */}
-            {year === '2025' && (
-              <div
-                onClick={() => router.push('/generating')}
-                style={{
-                  padding: 10, marginBottom: 8,
-                  borderRadius: 12, border: `1.2px dashed ${TERRA}`,
-                  display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer',
-                }}
-              >
-                <div style={{
-                  width: 20, height: 20, borderRadius: '50%',
-                  border: `2px solid ${INK_FAINT}`, borderTopColor: TERRA,
-                  animation: 'spin 1s linear infinite',
-                }} />
-                <div style={{ flex: 1, fontSize: 11 }}>
-                  <b>'{MOCK_WRITING_IN_PROGRESS.title}'</b> 블로그 작성 중...
-                </div>
-                <span style={{ fontFamily: FONT_MONO, fontSize: 8, color: INK_SOFT }}>
-                  {MOCK_WRITING_IN_PROGRESS.elapsed}
-                </span>
-              </div>
-            )}
           </div>
         ))}
       </div>

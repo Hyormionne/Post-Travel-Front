@@ -12,6 +12,8 @@ import {
 import { useUploadFlow, setUploadFlow } from '../../store/uploadFlow';
 import type { MarkerBgColor } from '../../types/room';
 import { createRoom, getPresignedUrls, putToS3, completeUpload, buildCompleteItems } from './api';
+import { getStoredFiles } from '../../store/uploadFiles';
+import { addRoomId } from '../../store/roomRegistry';
 
 const BG_COLORS: MarkerBgColor[] = ['#d8c9a5', '#cfd8c2', '#e2c9bc', '#c9d2db', '#decfd8', '#f0ead2'];
 
@@ -28,12 +30,36 @@ const SHAPES: { k: Shape; s: string; r: number; label: string }[] = [
 export function MetadataPage() {
   const router = useRouter();
   const [flow, setFlow] = useUploadFlow();
-  const fileCount = flow.selectedLocalIds.length || 47;
 
-  const [tripName, setTripName] = useState(flow.tripName || '홋카이도, 5월');
+  // 인메모리 store에서 실제 File 객체 가져오기
+  const storedFiles = useMemo(() => getStoredFiles(), []);
+  const realFiles = useMemo(() => {
+    return flow.selectedLocalIds
+      .map((id) => ({ id, file: storedFiles.get(id) }))
+      .filter((x): x is { id: string; file: File } => !!x.file);
+  }, [flow.selectedLocalIds, storedFiles]);
+  const fileCount = realFiles.length || flow.selectedLocalIds.length;
+
+  // 실제 사진 미리보기 URL 생성
+  const previewUrls = useMemo(() => {
+    const urls = new Map<string, string>();
+    for (const { id, file } of realFiles) {
+      urls.set(id, URL.createObjectURL(file));
+    }
+    return urls;
+  }, [realFiles]);
+
+  // 미리보기 URL cleanup
+  useEffect(() => {
+    return () => {
+      for (const url of previewUrls.values()) URL.revokeObjectURL(url);
+    };
+  }, [previewUrls]);
+
+  const [tripName, setTripName] = useState(flow.tripName || '');
   const [marker, setMarker] = useState(flow.marker);
   const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState<'uploading' | 'completing' | 'done' | 'error'>('uploading');
+  const [status, setStatus] = useState<'idle' | 'uploading' | 'completing' | 'done' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
 
   // 마커 커스텀은 변경 즉시 store에 반영
@@ -42,85 +68,71 @@ export function MetadataPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [marker.emoji, marker.bgColor, marker.shape, tripName]);
 
-  // 진입 즉시 presigned → S3 PUT → complete의 mock 흐름 시작
-  useEffect(() => {
-    let cancelled = false;
-    async function run() {
-      try {
-        setStatus('uploading');
-        // 1) 룸이 아직 없으면 임시 생성 (실제 흐름은 메타 완료 시 호출도 OK).
-        let roomId = flow.roomId;
-        if (!roomId) {
-          const room = await createRoom({
-            title: tripName,
-            markerEmoji: marker.emoji,
-            markerBgColor: marker.bgColor,
-            markerShape: marker.shape,
-          });
-          if (cancelled) return;
-          roomId = room.id;
-          setFlow({ roomId, inviteToken: room.inviteToken });
-        }
-        // 2) presigned-urls (1~50개씩 배치). mock에서는 모두 한 번에.
-        const totalFiles = fileCount;
-        const files = Array.from({ length: totalFiles }, (_, i) => ({
-          name: `IMG_${1000 + i}.jpg`,
-          size: 3_500_000,
-          contentType: 'image/jpeg' as const,
-        }));
-        const presigned = await getPresignedUrls({ roomId, files });
-        if (cancelled) return;
+  const startUpload = async () => {
+    if (status === 'uploading' || status === 'completing') return;
+    if (!tripName.trim()) { setError('여행 이름을 입력해주세요.'); return; }
+    if (realFiles.length === 0) { setError('업로드할 사진이 없어요.'); return; }
 
-        // 3) 각 파일의 original + thumbnail PUT — 진행률 평균으로 표시
-        const totalBytes = files.reduce((s, f) => s + f.size, 0) * 2; // original + thumbnail
-        const loaded = new Array<number>(presigned.length * 2).fill(0);
-        const update = () => {
-          const sum = loaded.reduce((a, b) => a + b, 0);
-          setProgress(Math.min(1, sum / totalBytes));
-        };
-        const tasks: Promise<void>[] = [];
-        presigned.forEach((p, i) => {
-          const blob = new Blob([new Uint8Array(0)], { type: 'image/jpeg' });
-          tasks.push(
-            putToS3(p.original.url, blob, (l) => {
-              loaded[i * 2] = l;
-              update();
-            }),
-          );
-          tasks.push(
-            putToS3(p.thumbnail.url, blob, (l) => {
-              loaded[i * 2 + 1] = l;
-              update();
-            }),
-          );
+    setError(null);
+    setStatus('uploading');
+    setProgress(0);
+
+    try {
+      // 1) 룸 생성
+      let roomId = flow.roomId;
+      if (!roomId) {
+        const room = await createRoom({
+          title: tripName.trim(),
+          markerEmoji: marker.emoji,
+          markerBgColor: marker.bgColor,
+          markerShape: marker.shape,
         });
-        await Promise.all(tasks);
-        if (cancelled) return;
-        setProgress(1);
-
-        // 4) complete
-        setStatus('completing');
-        const items = buildCompleteItems(presigned, files.map((f) => new File([], f.name, { type: f.contentType })));
-        await completeUpload({ roomId, photos: items });
-        if (cancelled) return;
-        setStatus('done');
-      } catch (e) {
-        if (cancelled) return;
-        setStatus('error');
-        setError(e instanceof Error ? e.message : '업로드 실패');
+        roomId = room.id;
+        setFlow({ roomId, inviteToken: room.inviteToken });
       }
-    }
-    run();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      addRoomId(roomId);
 
-  const goCluster = () => {
-    if (status !== 'done') return;
-    if (!flow.roomId) return;
-    router.push(`/clusters?roomId=${encodeURIComponent(flow.roomId)}`);
+      // 2) presigned URLs
+      const filesMeta = realFiles.map(({ file }) => ({
+        name: file.name,
+        size: file.size,
+        contentType: file.type as 'image/jpeg' | 'image/png' | 'image/webp',
+      }));
+      const presigned = await getPresignedUrls({ roomId, files: filesMeta });
+
+      // 3) S3 PUT — 실제 파일 업로드 + 진행률
+      const totalBytes = realFiles.reduce((s, { file }) => s + file.size, 0);
+      const loaded = new Array<number>(presigned.length).fill(0);
+      const update = () => {
+        const sum = loaded.reduce((a, b) => a + b, 0);
+        setProgress(Math.min(1, sum / totalBytes));
+      };
+      const tasks: Promise<void>[] = [];
+      presigned.forEach((p, i) => {
+        tasks.push(
+          putToS3(p.original.url, realFiles[i].file, (l) => {
+            loaded[i] = l;
+            update();
+          }),
+        );
+        // thumbnail은 같은 파일을 보냄 (서버 측 리사이즈 또는 차후 클라이언트 리사이즈)
+        tasks.push(putToS3(p.thumbnail.url, realFiles[i].file));
+      });
+      await Promise.all(tasks);
+      setProgress(1);
+
+      // 4) complete
+      setStatus('completing');
+      const items = await buildCompleteItems(presigned, realFiles.map(({ file }) => file));
+      await completeUpload({ roomId, photos: items });
+      setStatus('done');
+
+      // 바로 clusters 페이지로 이동
+      router.push(`/clusters?roomId=${encodeURIComponent(roomId)}`);
+    } catch (e) {
+      setStatus('error');
+      setError(e instanceof Error ? e.message : '업로드 실패');
+    }
   };
 
   const inviteUrl = useMemo(() => {
@@ -140,7 +152,9 @@ export function MetadataPage() {
       ? '업로드 완료'
       : status === 'completing'
         ? 'AI 분석 시작 중'
-        : `업로드 중 · ${doneCount} / ${fileCount}`;
+        : status === 'uploading'
+          ? `업로드 중 · ${doneCount} / ${fileCount}`
+          : `${fileCount}장 준비됨`;
 
   const visiblePreviewCount = Math.min(7, fileCount);
 
@@ -162,10 +176,20 @@ export function MetadataPage() {
         </div>
         <Progress value={progress} />
         <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
-          {Array.from({ length: visiblePreviewCount }).map((_, i) => (
-            <PhotoTile key={i} w={42} h={42} label={String.fromCharCode(65 + i)}
-              dim={i < Math.round(progress * visiblePreviewCount) ? 1 : 0.4} />
-          ))}
+          {realFiles.slice(0, visiblePreviewCount).map(({ id }, i) => {
+            const url = previewUrls.get(id);
+            const uploaded = status === 'uploading' ? i < Math.round(progress * visiblePreviewCount) : status !== 'idle';
+            return url ? (
+              <div key={id} style={{
+                width: 42, height: 42, borderRadius: 4, overflow: 'hidden',
+                border: `1px solid ${INK_FAINT}`, opacity: uploaded ? 1 : 0.4, flexShrink: 0,
+              }}>
+                <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              </div>
+            ) : (
+              <PhotoTile key={id} w={42} h={42} label={String.fromCharCode(65 + i)} dim={uploaded ? 1 : 0.4} />
+            );
+          })}
           {fileCount > visiblePreviewCount && (
             <div style={{
               width: 42, height: 42, borderRadius: 4,
@@ -279,14 +303,6 @@ export function MetadataPage() {
         />
         <SectionTitle hint="선택">일행</SectionTitle>
         <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-          {['지', '민'].map((c, i) => (
-            <div key={i} style={{
-              width: 32, height: 32, borderRadius: '50%',
-              border: `1.2px solid ${INK}`, background: SAGE,
-              color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: FONT_HAND, fontSize: 14,
-            }}>{c}</div>
-          ))}
           <div style={{
             width: 32, height: 32, borderRadius: '50%',
             border: `1.2px dashed ${INK}`,
@@ -307,32 +323,57 @@ export function MetadataPage() {
           </span>
         </div>
         <SectionTitle>대표 사진</SectionTitle>
-        <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-          {[0, 1, 2, 3].map((i) => {
-            const id = `cover-${i}`;
+        <div style={{ display: 'flex', gap: 6, marginBottom: 14, overflowX: 'auto' }}>
+          {realFiles.slice(0, 8).map(({ id }) => {
+            const url = previewUrls.get(id);
             const picked = flow.coverPhotoId === id;
             return (
-              <div key={i} onClick={() => setUploadFlow({ coverPhotoId: picked ? null : id })} style={{ cursor: 'pointer' }}>
-                <PhotoTile w={48} h={48} label={String.fromCharCode(75 + i)} picked={picked} />
+              <div
+                key={id}
+                onClick={() => setUploadFlow({ coverPhotoId: picked ? null : id })}
+                style={{ cursor: 'pointer', flexShrink: 0 }}
+              >
+                {url ? (
+                  <div style={{
+                    width: 48, height: 48, borderRadius: 4, overflow: 'hidden', position: 'relative',
+                    border: `1px solid ${picked ? TERRA : INK}`,
+                    boxShadow: picked ? `0 0 0 2px ${TERRA}` : 'none',
+                  }}>
+                    <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    {picked && (
+                      <span style={{
+                        position: 'absolute', top: 2, right: 2, width: 14, height: 14,
+                        borderRadius: '50%', background: TERRA, color: 'white',
+                        fontSize: 9, lineHeight: '14px', textAlign: 'center', fontWeight: 700,
+                      }}>&#10003;</span>
+                    )}
+                  </div>
+                ) : (
+                  <PhotoTile w={48} h={48} label={id} picked={picked} />
+                )}
               </div>
             );
           })}
         </div>
         <Btn
-          primary={status === 'done'}
+          primary={status === 'idle' || status === 'done'}
           full
-          onClick={goCluster}
+          onClick={startUpload}
           style={{
             marginTop: 8,
-            opacity: status === 'done' ? 1 : 0.55,
-            cursor: status === 'done' ? 'pointer' : 'not-allowed',
+            opacity: status === 'uploading' || status === 'completing' ? 0.55 : 1,
+            cursor: status === 'uploading' || status === 'completing' ? 'not-allowed' : 'pointer',
           }}
         >
-          {status === 'done'
-            ? '준비 완료'
-            : status === 'completing'
-              ? 'AI 분석 시작 중...'
-              : `업로드 중 ${doneCount} / ${fileCount}`}
+          {status === 'idle'
+            ? '업로드 시작'
+            : status === 'uploading'
+              ? `업로드 중 ${doneCount} / ${fileCount}`
+              : status === 'completing'
+                ? 'AI 분석 시작 중...'
+                : status === 'error'
+                  ? '다시 시도'
+                  : '준비 완료'}
         </Btn>
       </div>
     </Screen>

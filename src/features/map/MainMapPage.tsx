@@ -9,7 +9,7 @@ import { FrostedHeader, ZoomControls, Toast, Btn, Progress } from '../../compone
 import { MainShell } from '../../components/MainShell';
 import { INK, INK_SOFT, INK_FAINT, SAGE, TERRA, PAPER, PAPER_2, FONT_HAND, FONT_MONO, FONT_UI } from '../../theme/tokens';
 import { listTrips } from '../trips/api';
-import type { TripSummary } from '../../mocks/data';
+import type { TripSummary } from '../../types/room';
 import { useNotifications, markAllRead, type Notification } from '../../store/notifications';
 import { getUser, clearAuth } from '../../store/auth';
 import { logout } from '../auth/api';
@@ -59,8 +59,8 @@ export function MainMapPage() {
     <Screen>
       <OpenMapBg
         pins={trips.map((t) => ({ lat: t.lat, lng: t.lng, label: t.emoji }))}
-        center={[134, 38.5]}
-        zoom={5}
+        center={trips.length > 0 ? [trips[0].lng, trips[0].lat] : [127, 37.5]}
+        zoom={trips.length > 0 ? 6 : 5}
         onPinClick={(i) => setSelected(selected === i ? null : i)}
         onMapClick={() => setSelected(null)}
       />
@@ -323,22 +323,23 @@ export function MainMapPage() {
               <div style={{ fontFamily: FONT_MONO, fontSize: 8, color: INK_SOFT, marginTop: 2 }}>
                 {trips[selected].dates} · {trips[selected].info}
               </div>
-              <div style={{ fontFamily: FONT_HAND, fontSize: 13, marginTop: 4, color: INK_SOFT }}>
-                "눈 덮인 비에이의 아침이 가장 기억에 남는..."
-              </div>
             </div>
           </div>
           <div style={{ borderTop: `1px dashed ${INK_FAINT}`, paddingTop: 8 }} />
           <div style={{ display: 'flex', gap: 3 }}>
-            {[0, 1, 2, 3, 4].map((i) => (
-              <PhotoTile key={i} w={42} h={42} label={String.fromCharCode(65 + selected * 5 + i)} />
-            ))}
-            <div style={{
-              width: 42, height: 42, borderRadius: 4,
-              border: `1px dashed ${INK_FAINT}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: FONT_MONO, fontSize: 9, color: INK_SOFT,
-            }}>+</div>
+            {trips[selected].thumbnails.length > 0
+              ? trips[selected].thumbnails.map((url, i) => (
+                  <div key={i} style={{
+                    width: 42, height: 42, borderRadius: 4, overflow: 'hidden',
+                    border: `1px solid ${INK_FAINT}`, flexShrink: 0,
+                  }}>
+                    <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  </div>
+                ))
+              : [0, 1, 2].map((i) => (
+                  <PhotoTile key={i} w={42} h={42} label={String.fromCharCode(65 + i)} />
+                ))
+            }
           </div>
         </div>
       )}

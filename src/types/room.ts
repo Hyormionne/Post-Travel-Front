@@ -47,3 +47,16 @@ export interface UpdateRoomRequest {
 export interface InviteTokenResponse {
   inviteToken: string;
 }
+
+export interface TripSummary {
+  id: string;
+  emoji: string;
+  title: string;
+  dates: string;
+  info: string;
+  status: '발행됨' | '초안' | '작성중';
+  lat: number;
+  lng: number;
+  year: string;
+  thumbnails: string[];
+}

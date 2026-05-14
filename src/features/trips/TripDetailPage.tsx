@@ -17,7 +17,7 @@ import { listBlogs } from '../blog/api';
 import type { Room } from '../../types/room';
 import type { Cluster } from '../../types/cluster';
 import type { Blog } from '../../types/blog';
-import { MOCK_PHOTOS, MOCK_USER } from '../../mocks/data';
+import { getUser } from '../../store/auth';
 
 type Tab = '블로그' | '폴더';
 
@@ -53,7 +53,7 @@ function AuthorAvatar({ name, color = SAGE, size = 22 }: { name: string; color?:
 export function TripDetailPage() {
   const router = useRouter();
   const search = useSearchParams();
-  const roomId = search?.get('roomId') ?? 'room-001';
+  const roomId = search?.get('roomId') ?? '';
 
   const [tab, setTab] = useState<Tab>('블로그');
   const [room, setRoom] = useState<Room | null>(null);
@@ -83,14 +83,10 @@ export function TripDetailPage() {
     };
   }, [roomId]);
 
-  const photoKeywordIndex = useMemo(() => {
-    const idx: Record<string, string[]> = {};
-    for (const p of MOCK_PHOTOS) idx[p.id] = p.aiKeywords;
-    return idx;
-  }, []);
+  const photoKeywordIndex = useMemo<Record<string, string[]>>(() => ({}), []);
 
   const sortedBlogs = useMemo(() => {
-    const me = MOCK_USER.id;
+    const me = getUser()?.id;
     return [...blogs].sort((a, b) => {
       const aMe = a.authorId === me ? 0 : 1;
       const bMe = b.authorId === me ? 0 : 1;
@@ -147,7 +143,7 @@ export function TripDetailPage() {
               {trip?.title ?? room?.title ?? '여행'}
             </div>
             <div style={{ fontFamily: FONT_MONO, fontSize: 9, color: INK_SOFT, marginTop: 4 }}>
-              {trip?.dates ?? '날짜 미정'} · {trip?.info ?? `사진 ${MOCK_PHOTOS.length}`} · AI 초안 ✦
+              {trip?.dates ?? '날짜 미정'} · {trip?.info ?? ''} · AI 초안 ✦
             </div>
           </div>
         </div>

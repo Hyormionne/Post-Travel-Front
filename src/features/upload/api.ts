@@ -9,7 +9,6 @@ import type {
 } from '../../types/photo';
 import type { Room, CreateRoomRequest } from '../../types/room';
 import { API_BASE, delay, realFetch, withMockFallback } from '../../lib/mockMode';
-import { MOCK_PHOTOS, MOCK_ROOM } from '../../mocks/data';
 
 const ALLOWED: ContentType[] = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -24,20 +23,13 @@ export async function createRoom(body: CreateRoomRequest): Promise<Room> {
       const res = await realFetch(`${API_BASE}/rooms`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(body),
+        body: JSON.stringify({ title: body.title }),
       });
       if (!res.ok) throw new Error('createRoom failed');
       return res.json();
     },
     async () => {
-      await delay(250);
-      return {
-        ...MOCK_ROOM,
-        id: `room-${Math.random().toString(36).slice(2, 8)}`,
-        title: body.title ?? '새 여행',
-        createdAt: new Date().toISOString(),
-      };
+      throw new Error('mock mode disabled');
     },
   );
 }
@@ -55,7 +47,6 @@ export async function getPresignedUrls(req: PresignedUrlsRequest): Promise<Presi
       const res = await realFetch(`${API_BASE}/photos/presigned-urls`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(req),
       });
       if (!res.ok) throw new Error('presigned-urls failed');
@@ -108,27 +99,55 @@ export async function completeUpload(req: PhotoCompleteRequest): Promise<Photo[]
       const res = await realFetch(`${API_BASE}/photos/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(req),
       });
       if (!res.ok) throw new Error('complete failed');
       return res.json();
     },
     async () => {
-      await delay(200);
-      return MOCK_PHOTOS.slice(0, req.photos.length);
+      throw new Error('mock mode disabled');
     },
   );
 }
 
-export function buildCompleteItems(
+export async function buildCompleteItems(
   presigned: PresignedUrlsResponse,
   files: File[],
-): PhotoCompleteItem[] {
-  return presigned.map((p, i) => ({
-    photoId: p.photoId,
-    s3Key: p.original.key,
-    thumbnailKey: p.thumbnail.key,
-    fileSize: files[i]?.size ?? 0,
-  }));
+): Promise<PhotoCompleteItem[]> {
+  const exifr = await import('exifr');
+  return Promise.all(
+    presigned.map(async (p, i) => {
+      const file = files[i];
+      const item: PhotoCompleteItem = {
+        photoId: p.photoId,
+        s3Key: p.original.key,
+        thumbnailKey: p.thumbnail.key,
+        fileSize: file?.size ?? 0,
+      };
+      if (!file) return item;
+      try {
+        // GPS 좌표 추출
+        const gps = await exifr.gps(file).catch(() => null);
+        if (gps?.latitude != null && gps?.longitude != null) {
+          item.lat = gps.latitude;
+          item.lng = gps.longitude;
+        }
+        // 나머지 EXIF 태그 추출
+        const exif = await exifr.parse(file, ['DateTimeOriginal', 'ExifImageWidth', 'ExifImageHeight', 'ImageWidth', 'ImageHeight']).catch(() => null);
+        if (exif) {
+          if (exif.DateTimeOriginal) {
+            item.takenAt = new Date(exif.DateTimeOriginal).toISOString();
+          }
+          const w = exif.ExifImageWidth ?? exif.ImageWidth;
+          const h = exif.ExifImageHeight ?? exif.ImageHeight;
+          if (w) item.width = w;
+          if (h) item.height = h;
+        }
+        console.log(`[EXIF] ${file.name}: lat=${item.lat}, lng=${item.lng}, takenAt=${item.takenAt}`);
+      } catch {
+        console.log(`[EXIF] ${file.name}: parse failed`);
+      }
+      return item;
+    }),
+  );
 }

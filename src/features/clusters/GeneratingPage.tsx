@@ -7,7 +7,7 @@ import { MapBg } from '../../components/MapBg';
 import { ThumbPin, FrostedHeader, FAB, MapToggle, ZoomControls, Toast } from '../../components/ui';
 import { INK, PAPER, TERRA, INK_FAINT, FONT_MONO, SAGE } from '../../theme/tokens';
 import { useFakeProgress } from './hooks/useClusterStream';
-import { createBlog } from '../blog/api';
+import { listBlogs } from '../blog/api';
 import { useUploadFlow, setUploadFlow } from '../../store/uploadFlow';
 import { pushNotification } from '../../store/notifications';
 
@@ -24,7 +24,7 @@ export function GeneratingPage() {
   const router = useRouter();
   const search = useSearchParams();
   const [flow] = useUploadFlow();
-  const roomId = search?.get('roomId') ?? flow.roomId ?? 'room-001';
+  const roomId = search?.get('roomId') ?? flow.roomId ?? '';
   const [toastVisible, setToastVisible] = useState(true);
   const [completedBlogId, setCompletedBlogId] = useState<string | null>(null);
 
@@ -33,25 +33,26 @@ export function GeneratingPage() {
     totalSteps: 5,
     stepMs: 700,
     onSuccess: async () => {
-      // WebSocket blog:published 시뮬: blog 자동 생성 → 알림 push → /editor로 라우팅
+      // 백엔드 job이 생성한 블로그를 폴링으로 찾기
       try {
-        const blog = await createBlog({
-          roomId,
-          title: flow.tripName || '새 여행 블로그',
-          content: '',
-        });
-        setCompletedBlogId(blog.id);
-        pushNotification({
-          id: `n-${blog.id}`,
-          kind: 'blog:published',
-          blogId: blog.id,
-          roomId,
-          title: `'${blog.title}' 초안 완성`,
-          meta: '방금',
-          highlight: true,
-        });
-        // 흐름 완료 — 잠깐 표시 후 /editor 이동
-        setTimeout(() => router.push(`/editor?blogId=${encodeURIComponent(blog.id)}`), 1200);
+        const blogs = await listBlogs(roomId);
+        const latest = blogs[0];
+        if (latest) {
+          setCompletedBlogId(latest.id);
+          pushNotification({
+            id: `n-${latest.id}`,
+            kind: 'blog:published',
+            blogId: latest.id,
+            roomId,
+            title: `'${latest.title}' 초안 완성`,
+            meta: '방금',
+            highlight: true,
+          });
+          setTimeout(() => router.push(`/editor?blogId=${encodeURIComponent(latest.id)}`), 1200);
+        } else {
+          // 아직 생성 안 됨 — 여행 상세로 이동
+          setTimeout(() => router.push(`/trip-detail?roomId=${encodeURIComponent(roomId)}`), 1200);
+        }
       } catch {
         // 실패 시 사용자 액션 대기
       }

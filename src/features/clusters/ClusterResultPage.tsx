@@ -9,13 +9,12 @@ import type { Cluster } from '../../types/cluster';
 import { fetchClusters, triggerBlogDraft } from './api';
 import { FolderCardLive } from './components/FolderCardLive';
 import { useUploadFlow, setUploadFlow } from '../../store/uploadFlow';
-import { MOCK_PHOTOS } from '../../mocks/data';
 
 export function ClusterResultPage() {
   const router = useRouter();
   const search = useSearchParams();
   const [flow] = useUploadFlow();
-  const roomId = search?.get('roomId') ?? flow.roomId ?? 'room-001';
+  const roomId = search?.get('roomId') ?? flow.roomId ?? '';
 
   const [clusters, setClusters] = useState<Cluster[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,18 +36,12 @@ export function ClusterResultPage() {
     };
   }, [roomId]);
 
-  // photoId → aiKeywords 인덱스 (mock 광역)
-  const photoKeywordIndex = useMemo(() => {
-    const idx: Record<string, string[]> = {};
-    for (const p of MOCK_PHOTOS) idx[p.id] = p.aiKeywords;
-    return idx;
-  }, []);
+  const photoKeywordIndex = useMemo<Record<string, string[]>>(() => ({}), []);
 
-  const totalPhotos = MOCK_PHOTOS.filter((p) => p.roomId === roomId || roomId === 'room-001').length || 127;
-  const clusterCount = clusters?.filter((c) => c.clusterType === 'VLM_SCENE').length ?? 0;
+  const clusterCount = clusters?.length ?? 0;
   const loading = clusters === null;
 
-  const tripName = flow.tripName || '홋카이도, 5월';
+  const tripName = flow.tripName || '여행';
 
   const onMagic = async () => {
     if (triggering) return;
@@ -72,8 +65,8 @@ export function ClusterResultPage() {
       <div style={{ position: 'absolute', top: 32, left: 0, right: 0, padding: '6px 16px' }}>
         <div style={{ fontFamily: FONT_HAND, fontSize: 18, color: INK, lineHeight: 1.1 }}>
           {loading
-            ? `✨ ${totalPhotos}장의 사진을 분류하고 있어요…`
-            : `✨ ${totalPhotos}장의 사진을 ${clusterCount || clusters?.length || 0}개의 추억으로 묶었어요`}
+            ? '✨ 사진을 분류하고 있어요…'
+            : `✨ ${clusterCount}개의 추억으로 묶었어요`}
         </div>
         <div style={{ fontFamily: FONT_MONO, fontSize: 8, color: INK_SOFT, marginTop: 4 }}>
           {tripName} · {loading ? '분류 중...' : '클러스터링 완료'}

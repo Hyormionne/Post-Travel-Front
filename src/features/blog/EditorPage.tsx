@@ -16,7 +16,6 @@ import {
 import type { Blog } from '../../types/blog';
 import { createBlog, getBlog, patchBlog, publishBlog } from './api';
 import { useDebouncedCallback } from './hooks/useDebouncedCallback';
-import { MOCK_PHOTOS } from '../../mocks/data';
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
 
@@ -85,9 +84,16 @@ export function EditorPage() {
         if (blogIdParam) {
           b = await getBlog(blogIdParam);
         } else if (roomIdParam) {
-          b = await createBlog({ roomId: roomIdParam, title: '제목 없음', content: '' });
+          // 기존 블로그가 있으면 가져오고, 없을 때만 새로 생성
+          const { listBlogs } = await import('./api');
+          const existing = await listBlogs(roomIdParam);
+          if (existing.length > 0) {
+            b = existing[0];
+          } else {
+            b = await createBlog({ roomId: roomIdParam, title: '제목 없음', content: '' });
+          }
         } else {
-          b = await getBlog('blog-1');
+          return; // blogId도 roomId도 없으면 아무것도 안 함
         }
         if (cancelled) return;
         setBlog(b);
@@ -185,9 +191,8 @@ export function EditorPage() {
   const restPhotos = (blog?.photos ?? []).slice(1);
 
   const pickerCandidates = useMemo(() => {
-    const used = new Set(blog?.photos.map((p) => p.photoId) ?? []);
-    return MOCK_PHOTOS.filter((p) => !used.has(p.id)).slice(0, 12);
-  }, [blog?.photos]);
+    return [] as { id: string; thumbnailUrl: string }[];
+  }, []);
 
   return (
     <Screen scrollable>
