@@ -1,10 +1,12 @@
 // 인증 상태 관리 — localStorage(토큰) + 쿠키(미들웨어 가드용).
 // 쿠키는 서버 미들웨어가 읽는 단순 플래그, 실제 토큰 값은 localStorage에.
 
-const KEY_ACCESS = 'yh_access';
-const KEY_REFRESH = 'yh_refresh';
-const KEY_PROFILE = 'yh_profile';
-const KEY_USER = 'yh_user';
+const KEY_ACCESS   = 'yh_access';
+const KEY_REFRESH  = 'yh_refresh';
+const KEY_PROFILE  = 'yh_profile';
+const KEY_USER     = 'yh_user';
+// 이모지는 auth와 독립 — 로그아웃해도 유지
+const KEY_EMOJI    = 'yh_emoji_pref';
 
 export interface AuthUser {
   id: string;
@@ -33,6 +35,10 @@ export function setTokens(accessToken: string, refreshToken: string) {
 
 export function setUser(user: AuthUser) {
   if (typeof window === 'undefined') return;
+  // 이모지는 별도 키에도 저장해서 로그아웃 후에도 복원 가능하게
+  if (user.profileEmoji) {
+    localStorage.setItem(KEY_EMOJI, user.profileEmoji);
+  }
   localStorage.setItem(KEY_USER, JSON.stringify(user));
 }
 
@@ -72,12 +78,19 @@ export function getUser(): AuthUser | null {
   }
 }
 
+// 로그아웃해도 남아있는 이모지 선호
+export function getSavedEmoji(): string {
+  if (typeof window === 'undefined') return '✈';
+  return localStorage.getItem(KEY_EMOJI) ?? '✈';
+}
+
 export function clearAuth() {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(KEY_ACCESS);
   localStorage.removeItem(KEY_REFRESH);
   localStorage.removeItem(KEY_PROFILE);
   localStorage.removeItem(KEY_USER);
+  // KEY_EMOJI는 의도적으로 유지 (재로그인 시 복원용)
   removeCookie('yh_session');
   removeCookie('yh_profile');
 }

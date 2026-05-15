@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // 인증 없이 접근 가능한 경로.
-const PUBLIC_PATHS = ['/login', '/profile-setup'];
+const PUBLIC_PATHS = ['/login', '/profile-setup', '/signup'];
 
 // Next.js 자산·API는 미들웨어 대상 제외.
 export const config = {

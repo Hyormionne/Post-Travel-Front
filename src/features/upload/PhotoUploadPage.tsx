@@ -9,6 +9,7 @@ import { BottomSheet, Pill, Btn } from '../../components/ui';
 import { INK, INK_SOFT, INK_FAINT, FONT_MONO, FONT_UI, TERRA } from '../../theme/tokens';
 import { isAllowedType } from './api';
 import { resetUploadFlow, setUploadFlow, useUploadFlow } from '../../store/uploadFlow';
+import { photoCache } from '../../store/photoCache';
 import { storeFiles } from '../../store/uploadFiles';
 
 interface LocalFile {
@@ -48,13 +49,8 @@ export function PhotoUploadPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ObjectURL 누수 방지
-  useEffect(() => {
-    return () => {
-      for (const it of items) if (it.previewUrl) URL.revokeObjectURL(it.previewUrl);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // ObjectURL은 photoCache가 관리 — 컴포넌트 언마운트 시 직접 revoke 안 함
+  // (MetadataPage에서 대표사진 미리보기에 그대로 사용)
 
   const togglePick = (id: string) => {
     setPicks((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -74,14 +70,12 @@ export function PhotoUploadPage() {
     const accepted = files.filter((f) => isAllowedType(f.type));
     if (accepted.length === 0) return;
 
-    const next: LocalFile[] = accepted.slice(0, 50).map((f, i) => ({
-      id: `file-${Date.now()}-${i}`,
-      name: f.name,
-      size: f.size,
-      type: f.type,
-      previewUrl: URL.createObjectURL(f),
-      file: f,
-    }));
+    const next: LocalFile[] = accepted.slice(0, 50).map((f, i) => {
+      const id = `file-${Date.now()}-${i}`;
+      const previewUrl = URL.createObjectURL(f);
+      photoCache.set(id, previewUrl); // MetadataPage에서도 사용 가능하도록 캐시
+      return { id, name: f.name, size: f.size, type: f.type, previewUrl, file: f };
+    });
     setItems((cur) => [...next, ...cur]);
     setPicks((cur) => [...next.map((n) => n.id), ...cur]);
   };

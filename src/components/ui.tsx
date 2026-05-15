@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react';
 import { INK, INK_SOFT, INK_FAINT, PAPER, PAPER_2, SAGE, TERRA, FONT_HAND, FONT_UI, FONT_MONO } from '../theme/tokens';
 
 // ── ThumbPin ──
@@ -81,20 +81,90 @@ export function FAB({ position = 'right', label = '+', size = 56, color, onClick
 }
 
 // ── BottomSheet ──
-interface BottomSheetProps { children: ReactNode; height?: string; style?: CSSProperties }
-export function BottomSheet({ children, height = '78%', style }: BottomSheetProps) {
+interface BottomSheetProps {
+  children: ReactNode;
+  height?: string;
+  style?: CSSProperties;
+  onDismiss?: () => void; // 스와이프 다운 시 호출
+}
+export function BottomSheet({ children, height = '78%', style, onDismiss }: BottomSheetProps) {
+  const startYRef = useRef<number | null>(null);
+  const isDraggingRef = useRef(false);
+  const [translateY, setTranslateY] = useState(0);
+  const translateYRef = useRef(0);
+  const DISMISS_THRESHOLD = 90;
+
+  const startDrag = (clientY: number) => {
+    startYRef.current = clientY;
+    isDraggingRef.current = true;
+  };
+
+  const moveDrag = (clientY: number) => {
+    if (!isDraggingRef.current || startYRef.current === null) return;
+    const dy = clientY - startYRef.current;
+    if (dy > 0) {
+      translateYRef.current = dy;
+      setTranslateY(dy);
+    }
+  };
+
+  const endDrag = () => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    if (translateYRef.current >= DISMISS_THRESHOLD && onDismiss) {
+      onDismiss();
+    } else {
+      translateYRef.current = 0;
+      setTranslateY(0);
+    }
+    startYRef.current = null;
+  };
+
+  // 마우스 이벤트 (데스크탑 브라우저 테스트용)
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => moveDrag(e.clientY);
+    const onMouseUp = () => endDrag();
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onDismiss]);
+
   return (
-    <div style={{
-      position: 'absolute', bottom: 0, left: 0, right: 0,
-      height, background: PAPER,
-      borderTopLeftRadius: 22, borderTopRightRadius: 22,
-      border: `1.2px solid ${INK}`, borderBottom: 'none',
-      boxShadow: '0 -8px 24px rgba(0,0,0,0.12)',
-      padding: '14px 14px 12px', overflow: 'hidden',
-      ...style,
-    }}>
-      <div style={{ width: 40, height: 4, borderRadius: 2, background: INK_FAINT, margin: '0 auto 10px' }} />
-      {children}
+    <div
+      style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        height,
+        transform: `translateY(${translateY}px)`,
+        transition: translateY === 0 ? 'transform .25s ease' : 'none',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute', inset: 0,
+          background: PAPER,
+          borderTopLeftRadius: 22, borderTopRightRadius: 22,
+          border: `1.2px solid ${INK}`, borderBottom: 'none',
+          boxShadow: '0 -8px 24px rgba(0,0,0,0.12)',
+          padding: '14px 14px 12px', overflow: 'hidden',
+          ...style,
+        }}
+      >
+        {/* 드래그 핸들 — 전체 너비 터치 영역 */}
+        <div
+          onTouchStart={(e) => startDrag(e.touches[0].clientY)}
+          onTouchMove={(e) => moveDrag(e.touches[0].clientY)}
+          onTouchEnd={endDrag}
+          onMouseDown={(e) => startDrag(e.clientY)}
+          style={{ margin: '0 auto 10px', padding: '8px 0', cursor: 'grab', touchAction: 'none', userSelect: 'none' }}
+        >
+          <div style={{ width: 40, height: 4, borderRadius: 2, background: INK_FAINT, margin: '0 auto' }} />
+        </div>
+        {children}
+      </div>
     </div>
   );
 }
@@ -185,8 +255,8 @@ export function SectionTitle({ children, hint, style }: SectionTitleProps) {
 }
 
 // ── FolderCard ──
-interface FolderCardProps { icon: string; title: string; count: number; kw?: string[]; style?: CSSProperties; onClick?: () => void }
-export function FolderCard({ icon, title, count, kw = [], style, onClick }: FolderCardProps) {
+interface FolderCardProps { icon: string; title: string; count: number; kw?: string[]; thumbnails?: string[]; style?: CSSProperties; onClick?: () => void }
+export function FolderCard({ icon, title, count, kw = [], thumbnails, style, onClick }: FolderCardProps) {
   return (
     <div onClick={onClick} style={{
       border: `1.2px solid ${INK}`, borderRadius: 12,
@@ -195,15 +265,20 @@ export function FolderCard({ icon, title, count, kw = [], style, onClick }: Fold
       ...style,
     }}>
       <div style={{ position: 'relative', height: 70, marginBottom: 8 }}>
-        {['A', 'B', 'C'].map((c, i) => (
+        {[0, 1, 2].map((i) => (
           <div key={i} style={{
             position: 'absolute', left: 8 + i * 14, top: 4 + i * 4,
             transform: `rotate(${(i - 1) * 4}deg)`, zIndex: 3 - i,
             width: 56, height: 56, borderRadius: 4,
-            background: `linear-gradient(135deg, #d8c9a5, #b8a279)`,
+            background: thumbnails?.[i] ? 'transparent' : `linear-gradient(135deg, #d8c9a5, #b8a279)`,
             border: `1px solid ${INK}`,
             boxShadow: '0 2px 4px rgba(0,0,0,0.12)',
-          }} />
+            overflow: 'hidden',
+          }}>
+            {thumbnails?.[i] && (
+              <img src={thumbnails[i]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            )}
+          </div>
         ))}
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 4 }}>

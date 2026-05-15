@@ -6,6 +6,9 @@ import { Screen } from '../../components/Screen';
 import { FONT_UI, FONT_HAND } from '../../theme/tokens';
 import { loginWithGoogle, mockLogin, emailLogin, emailSignup } from './api';
 import { isLoggedIn, getHasProfile } from '../../store/auth';
+import { USE_MOCKS } from '../../lib/mockMode';
+
+const IS_MOCK = USE_MOCKS;
 
 // 컬러 — 와이어프레임 토큰 (globals.css :root 기준)
 const C = {
@@ -14,9 +17,9 @@ const C = {
   ink2: '#3a342b',
   inkSoft: '#6b6353',
   inkFaint: '#9a917e',
-  coral: '#c66a4d',
-  sage: '#9bb583',
-  tan: '#d9b889',
+  coral:    '#c66a4d',
+  sage:     '#5a7a4a', // 더 진한 sage (버튼 가독성)
+  tan:      '#d9b889',
 };
 
 export function LoginPage() {
@@ -37,27 +40,44 @@ export function LoginPage() {
     }
   }, [router]);
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = () => {
+    if (IS_MOCK) {
+      mockLogin();
+      router.replace('/profile-setup');
+      return;
+    }
+
+    const g = (window as any).google;
+    if (!g) {
+      setError('Google 로그인을 불러오는 중이에요. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
+
     try {
-      const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-      if (!clientId) {
-        setError('Google 로그인이 아직 설정되지 않았어요. 이메일로 시작해주세요.');
-        return;
-      }
-      const { google } = window as unknown as { google: { accounts: { id: { initialize: (cfg: { client_id: string; callback: (res: { credential: string }) => void }) => void; prompt: () => void } } } };
-      google.accounts.id.initialize({
-        client_id: clientId,
+      g.accounts.id.initialize({
+        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
         callback: async ({ credential }: { credential: string }) => {
-          const { hasProfile } = await loginWithGoogle(credential);
-          router.replace(hasProfile ? '/' : '/profile-setup');
+          try {
+            // 구글 계정은 백엔드가 upsert 처리 — 신규/기존 구분 없이 바로 메인으로
+            await loginWithGoogle(credential);
+            router.replace('/');
+          } catch (e) {
+            setError(e instanceof Error ? e.message : '로그인에 실패했어요.');
+            setLoading(false);
+          }
         },
       });
-      google.accounts.id.prompt();
+      g.accounts.id.prompt((notification: any) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          setError('Google 로그인 팝업이 차단됐어요. 팝업 허용 후 다시 시도해주세요.');
+          setLoading(false);
+        }
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : '로그인에 실패했어요.');
-    } finally {
       setLoading(false);
     }
   };
@@ -141,7 +161,7 @@ export function LoginPage() {
         .yh-btn:active { transform: scale(.985); }
       `}</style>
 
-      {/* 페이지 배경 — 두 radial gradient */}
+      {/* 배경만 absolute — 콘텐츠와 분리 */}
       <div style={{
         minHeight: '100dvh',
         boxSizing: 'border-box',
@@ -150,8 +170,15 @@ export function LoginPage() {
           radial-gradient(360px 280px at -10% 100%, #efe1ba 0%, transparent 70%),
           ${C.paper}
         `,
+        pointerEvents: 'none',
+      }} />
+
+      {/* 콘텐츠 — 자연스럽게 흐르는 flex column */}
+      <div style={{
+        position: 'relative',
         display: 'flex', flexDirection: 'column',
-        padding: '15px 28px 36px',
+        padding: '56px 28px 36px',
+        zIndex: 1,
       }}>
 
         {/* 브랜드 */}
@@ -176,8 +203,8 @@ export function LoginPage() {
         {/* 히어로 일러스트 */}
         <div style={{
           position: 'relative',
-          height: 296,
-          margin: '26px -4px 0',
+          height: 220,
+          margin: '18px -4px 0',
           borderRadius: 22,
           background: 'linear-gradient(180deg, #f7e6bb 0%, #ead0a0 60%, #d9b889 100%)',
           overflow: 'hidden',
@@ -305,7 +332,7 @@ export function LoginPage() {
         </div>
 
         {/* 태그라인 */}
-        <div style={{ marginTop: 26, textAlign: 'left' }}>
+        <div style={{ marginTop: 18, textAlign: 'left' }}>
           <h1 style={{
             margin: 0,
             fontFamily: FONT_UI,
@@ -327,7 +354,7 @@ export function LoginPage() {
         </div>
 
         {/* CTA 버튼 영역 */}
-        <div style={{ marginTop: 'auto', paddingTop: 24, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
           {emailStep === 'none' ? (
             <>

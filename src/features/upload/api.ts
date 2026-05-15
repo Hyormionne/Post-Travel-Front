@@ -1,4 +1,4 @@
-// 업로드/룸 도메인 API. 실 API 시도 → 실패 시 mock 폴백.
+// 업로드/룸 도메인 API.
 import type {
   Photo,
   PhotoCompleteItem,
@@ -17,20 +17,47 @@ export function isAllowedType(t: string): t is ContentType {
 }
 
 // ── Room ──────────────────────────────────────────────
+// 백엔드 CreateRoomDto는 title만 허용 (forbidNonWhitelisted: true).
+// markerEmoji 등 extra 필드를 보내면 400이 난다.
+// 마커 설정은 방 생성 후 PATCH /rooms/:roomId 로 별도 업데이트.
 export async function createRoom(body: CreateRoomRequest): Promise<Room> {
   return withMockFallback(
     async () => {
       const res = await realFetch(`${API_BASE}/rooms`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: body.title }),
+        body: JSON.stringify({ title: body.title }),  // title만 전송
       });
-      if (!res.ok) throw new Error('createRoom failed');
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`createRoom ${res.status}: ${text}`);
+      }
       return res.json();
     },
     async () => {
       throw new Error('mock mode disabled');
     },
+  );
+}
+
+// 마커 설정 업데이트 — createRoom 이후 별도 호출 (실패해도 업로드 흐름 유지)
+export async function updateRoomMarker(
+  roomId: string,
+  marker: { markerEmoji: string; markerBgColor: string; markerShape: string },
+): Promise<void> {
+  await withMockFallback(
+    async () => {
+      const res = await realFetch(`${API_BASE}/rooms/${roomId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(marker),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`updateRoomMarker ${res.status}: ${text}`);
+      }
+    },
+    async () => { await delay(100); },
   );
 }
 
@@ -49,7 +76,10 @@ export async function getPresignedUrls(req: PresignedUrlsRequest): Promise<Presi
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req),
       });
-      if (!res.ok) throw new Error('presigned-urls failed');
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`presigned-urls ${res.status}: ${text}`);
+      }
       return res.json();
     },
     async () => {
@@ -64,7 +94,7 @@ export async function getPresignedUrls(req: PresignedUrlsRequest): Promise<Presi
 }
 
 // ── S3 PUT ────────────────────────────────────────────
-// mock://... URL이면 항상 가짜 진행률만 흘려보냄 (presigned 폴백이 mock URL을 발급한 경우).
+// mock://... URL이면 항상 가짜 진행률만 흘려보냄
 export async function putToS3(
   url: string,
   file: File | Blob,
@@ -101,7 +131,10 @@ export async function completeUpload(req: PhotoCompleteRequest): Promise<Photo[]
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req),
       });
-      if (!res.ok) throw new Error('complete failed');
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`photos/complete ${res.status}: ${text}`);
+      }
       return res.json();
     },
     async () => {
@@ -110,44 +143,3 @@ export async function completeUpload(req: PhotoCompleteRequest): Promise<Photo[]
   );
 }
 
-export async function buildCompleteItems(
-  presigned: PresignedUrlsResponse,
-  files: File[],
-): Promise<PhotoCompleteItem[]> {
-  const exifr = await import('exifr');
-  return Promise.all(
-    presigned.map(async (p, i) => {
-      const file = files[i];
-      const item: PhotoCompleteItem = {
-        photoId: p.photoId,
-        s3Key: p.original.key,
-        thumbnailKey: p.thumbnail.key,
-        fileSize: file?.size ?? 0,
-      };
-      if (!file) return item;
-      try {
-        // GPS 좌표 추출
-        const gps = await exifr.gps(file).catch(() => null);
-        if (gps?.latitude != null && gps?.longitude != null) {
-          item.lat = gps.latitude;
-          item.lng = gps.longitude;
-        }
-        // 나머지 EXIF 태그 추출
-        const exif = await exifr.parse(file, ['DateTimeOriginal', 'ExifImageWidth', 'ExifImageHeight', 'ImageWidth', 'ImageHeight']).catch(() => null);
-        if (exif) {
-          if (exif.DateTimeOriginal) {
-            item.takenAt = new Date(exif.DateTimeOriginal).toISOString();
-          }
-          const w = exif.ExifImageWidth ?? exif.ImageWidth;
-          const h = exif.ExifImageHeight ?? exif.ImageHeight;
-          if (w) item.width = w;
-          if (h) item.height = h;
-        }
-        console.log(`[EXIF] ${file.name}: lat=${item.lat}, lng=${item.lng}, takenAt=${item.takenAt}`);
-      } catch {
-        console.log(`[EXIF] ${file.name}: parse failed`);
-      }
-      return item;
-    }),
-  );
-}

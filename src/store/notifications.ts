@@ -19,8 +19,15 @@ export interface Notification {
 
 const KEY = 'yh.notifications';
 
+// null = 세션에 키 자체가 없음(첫 진입) → 빈 목록
+// []   = 명시적 상태 — 빈 목록 유지
 export function getNotifications(): Notification[] {
-  return readSession<Notification[]>(KEY, []);
+  const stored = readSession<Notification[] | null>(KEY, null);
+  if (stored === null) {
+    writeSession<Notification[]>(KEY, []);
+    return [];
+  }
+  return stored;
 }
 
 export function pushNotification(n: Omit<Notification, 'receivedAt' | 'read'>): void {
@@ -29,8 +36,7 @@ export function pushNotification(n: Omit<Notification, 'receivedAt' | 'read'>): 
 }
 
 export function markAllRead(): void {
-  const cur = getNotifications();
-  writeSession<Notification[]>(KEY, cur.map((n) => ({ ...n, read: true })));
+  writeSession<Notification[]>(KEY, []);
 }
 
 export function markRead(id: string): void {
@@ -49,7 +55,8 @@ export function useNotifications(): {
   markRead: (id: string) => void;
   push: (n: Omit<Notification, 'receivedAt' | 'read'>) => void;
 } {
-  const [list] = useSession<Notification[]>(KEY, []);
+  const [rawList] = useSession<Notification[] | null>(KEY, null);
+  const list = rawList ?? [];
   return {
     list,
     unread: list.filter((n) => !n.read).length,
