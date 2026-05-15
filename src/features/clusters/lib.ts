@@ -1,5 +1,13 @@
 import type { Cluster, ClusterPhoto } from '../../types/cluster';
-import { SCENE_ICON } from '../../mocks/data';
+
+const SCENE_ICON: Record<string, string> = {
+  food: '🍣',
+  snow: '❄️',
+  person: '👥',
+  flower: '🌸',
+  beach: '🌊',
+  city: '🏙️',
+};
 
 export interface FolderCardVM {
   id: string;

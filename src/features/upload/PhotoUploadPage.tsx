@@ -8,8 +8,13 @@ import { PhotoTile } from '../../components/PhotoTile';
 import { BottomSheet, Pill, Btn } from '../../components/ui';
 import { INK, INK_SOFT, INK_FAINT, FONT_MONO, FONT_UI, TERRA } from '../../theme/tokens';
 import { isAllowedType } from './api';
+<<<<<<< HEAD
 import { setUploadFlow, useUploadFlow } from '../../store/uploadFlow';
 import { photoCache } from '../../store/photoCache';
+=======
+import { resetUploadFlow, setUploadFlow, useUploadFlow } from '../../store/uploadFlow';
+import { storeFiles } from '../../store/uploadFiles';
+>>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
 
 interface LocalFile {
   id: string;
@@ -36,16 +41,15 @@ export function PhotoUploadPage() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const [items, setItems] = useState<LocalFile[]>(() => makePlaceholderItems(12));
-  // 데모용 초기 선택 — BE 없이도 "다음 →"이 바로 동작하도록.
-  const [picks, setPicks] = useState<string[]>(['local-0', 'local-1', 'local-4', 'local-5', 'local-8', 'local-11']);
+  const [items, setItems] = useState<LocalFile[]>([]);
+  const [picks, setPicks] = useState<string[]>([]);
   const [filter, setFilter] = useState<string>('전체');
   const [error, setError] = useState<string | null>(null);
   const [flow] = useUploadFlow();
 
-  // 흐름 진입 시 이전 흐름의 임시 선택 복원
+  // 새 업로드 흐름 시작 — 이전 흐름 초기화
   useEffect(() => {
-    if (flow.selectedLocalIds.length > 0) setPicks(flow.selectedLocalIds);
+    resetUploadFlow();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -86,6 +90,11 @@ export function PhotoUploadPage() {
       setError('1회 최대 50장까지 업로드 가능해요.');
       return;
     }
+    // 선택된 사진의 File 객체를 인메모리 store에 저장 (MetadataPage에서 사용)
+    const pickedFiles = items
+      .filter((it) => picks.includes(it.id) && it.file)
+      .map((it) => ({ id: it.id, file: it.file! }));
+    storeFiles(pickedFiles);
     setUploadFlow({ selectedLocalIds: picks });
     router.push('/metadata');
   };
@@ -95,7 +104,19 @@ export function PhotoUploadPage() {
   return (
     <Screen>
       <MapBg style={{ filter: 'blur(2px) brightness(0.95)' }} />
+<<<<<<< HEAD
       <BottomSheet height="84%" onDismiss={() => router.push('/')}>
+=======
+      <div
+        onClick={() => router.push('/')}
+        style={{
+          position: 'absolute', top: 0, left: 0,
+          width: 370, height: 140,
+          zIndex: 20, cursor: 'pointer',
+        }}
+      />
+      <BottomSheet height="84%">
+>>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
           <span style={{ fontWeight: 600, fontSize: 13, fontFamily: FONT_UI }}>어떤 추억을 기록할까요?</span>
           <span
@@ -167,8 +188,9 @@ export function PhotoUploadPage() {
             >
               +
             </div>
-            {visibleItems.map((it, i) => (
+            {visibleItems.map((it) => (
               <div key={it.id} data-id={it.id} style={{ cursor: 'pointer' }}>
+<<<<<<< HEAD
                 <PhotoTile
                   w="100%"
                   h={70}
@@ -176,6 +198,36 @@ export function PhotoUploadPage() {
                   picked={picks.includes(it.id)}
                   src={it.previewUrl}
                 />
+=======
+                {it.previewUrl ? (
+                  <div style={{
+                    width: '100%', height: 70, position: 'relative', borderRadius: 4,
+                    overflow: 'hidden', flexShrink: 0,
+                    border: `1px solid ${picks.includes(it.id) ? TERRA : INK}`,
+                    boxShadow: picks.includes(it.id) ? `0 0 0 2px ${TERRA}` : 'none',
+                  }}>
+                    <img
+                      src={it.previewUrl}
+                      alt={it.name}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                    {picks.includes(it.id) && (
+                      <span style={{
+                        position: 'absolute', top: 3, right: 3, width: 16, height: 16,
+                        borderRadius: '50%', background: TERRA, color: 'white',
+                        fontSize: 10, lineHeight: '16px', textAlign: 'center', fontWeight: 700,
+                      }}>&#10003;</span>
+                    )}
+                  </div>
+                ) : (
+                  <PhotoTile
+                    w="100%"
+                    h={70}
+                    label={it.name}
+                    picked={picks.includes(it.id)}
+                  />
+                )}
+>>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
               </div>
             ))}
           </div>

@@ -1,15 +1,12 @@
 import type { Blog, CreateBlogRequest, UpdateBlogRequest } from '../../types/blog';
 import { API_BASE, delay, realFetch, withMockFallback } from '../../lib/mockMode';
-import { MOCK_BLOGS } from '../../mocks/data';
 
-// 백엔드 미연결/실패 시 메모리 store가 mock 응답을 누적해 CRUD 시뮬레이션을 유지.
-const blogStore: Blog[] = [...MOCK_BLOGS];
+const blogStore: Blog[] = [];
 
 export async function listBlogs(roomId: string): Promise<Blog[]> {
   return withMockFallback(
     async () => {
       const res = await realFetch(`${API_BASE}/blogs?roomId=${encodeURIComponent(roomId)}`, {
-        credentials: 'include',
       });
       if (!res.ok) throw new Error('listBlogs failed');
       return res.json();
@@ -24,7 +21,7 @@ export async function listBlogs(roomId: string): Promise<Blog[]> {
 export async function getBlog(id: string): Promise<Blog> {
   return withMockFallback(
     async () => {
-      const res = await realFetch(`${API_BASE}/blogs/${id}`, { credentials: 'include' });
+      const res = await realFetch(`${API_BASE}/blogs/${id}`, {});
       if (!res.ok) throw new Error('getBlog failed');
       return res.json();
     },
@@ -43,7 +40,6 @@ export async function createBlog(body: CreateBlogRequest): Promise<Blog> {
       const res = await realFetch(`${API_BASE}/blogs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error('createBlog failed');
@@ -76,7 +72,6 @@ export async function patchBlog(id: string, body: UpdateBlogRequest): Promise<Bl
       const res = await realFetch(`${API_BASE}/blogs/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error('patchBlog failed');
@@ -110,7 +105,6 @@ export async function publishBlog(id: string): Promise<Blog> {
     async () => {
       const res = await realFetch(`${API_BASE}/blogs/${id}/publish`, {
         method: 'POST',
-        credentials: 'include',
       });
       if (!res.ok) throw new Error('publishBlog failed');
       return res.json();
@@ -129,7 +123,7 @@ export async function publishBlog(id: string): Promise<Blog> {
 export async function deleteBlog(id: string): Promise<void> {
   return withMockFallback(
     async () => {
-      const res = await realFetch(`${API_BASE}/blogs/${id}`, { method: 'DELETE', credentials: 'include' });
+      const res = await realFetch(`${API_BASE}/blogs/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('deleteBlog failed');
     },
     async () => {

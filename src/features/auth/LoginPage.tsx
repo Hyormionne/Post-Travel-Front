@@ -4,27 +4,38 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Screen } from '../../components/Screen';
 import { FONT_UI, FONT_HAND } from '../../theme/tokens';
-import { loginWithGoogle, mockLogin } from './api';
+import { loginWithGoogle, mockLogin, emailLogin, emailSignup } from './api';
 import { isLoggedIn, getHasProfile } from '../../store/auth';
-
-const IS_MOCK = process.env.NEXT_PUBLIC_MOCK_MODE === 'true';
 
 // 컬러 — 와이어프레임 토큰 (globals.css :root 기준)
 const C = {
-  paper:    '#faf5e8',
-  ink:      '#221f1a',
-  ink2:     '#3a342b',
-  inkSoft:  '#6b6353',
+  paper: '#faf5e8',
+  ink: '#221f1a',
+  ink2: '#3a342b',
+  inkSoft: '#6b6353',
   inkFaint: '#9a917e',
+<<<<<<< HEAD
   coral:    '#c66a4d',
   sage:     '#5a7a4a', // 더 진한 sage (버튼 가독성)
   tan:      '#d9b889',
+=======
+  coral: '#c66a4d',
+  sage: '#9bb583',
+  tan: '#d9b889',
+>>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
 };
 
 export function LoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 이메일 로그인/회원가입 상태
+  type EmailStep = 'none' | 'login' | 'signup';
+  const [emailStep, setEmailStep] = useState<EmailStep>('none');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [nickname, setNickname] = useState('');
 
   useEffect(() => {
     if (isLoggedIn()) {
@@ -49,6 +60,7 @@ export function LoginPage() {
     setError(null);
 
     try {
+<<<<<<< HEAD
       g.accounts.id.initialize({
         client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
         callback: async ({ credential }: { credential: string }) => {
@@ -68,14 +80,67 @@ export function LoginPage() {
           setLoading(false);
         }
       });
+=======
+      const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+      if (!clientId) {
+        setError('Google 로그인이 아직 설정되지 않았어요. 이메일로 시작해주세요.');
+        return;
+      }
+      const { google } = window as unknown as { google: { accounts: { id: { initialize: (cfg: { client_id: string; callback: (res: { credential: string }) => void }) => void; prompt: () => void } } } };
+      google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async ({ credential }: { credential: string }) => {
+          const { hasProfile } = await loginWithGoogle(credential);
+          router.replace(hasProfile ? '/' : '/profile-setup');
+        },
+      });
+      google.accounts.id.prompt();
+>>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
     } catch (e) {
       setError(e instanceof Error ? e.message : '로그인에 실패했어요.');
       setLoading(false);
     }
   };
 
+  const handleEmailSubmit = async () => {
+    if (!email.trim() || !password) {
+      setError('이메일과 비밀번호를 입력해주세요.');
+      return;
+    }
+    if (password.length < 8) {
+      setError('비밀번호는 8자 이상이어야 해요.');
+      return;
+    }
+    if (emailStep === 'signup' && !nickname.trim()) {
+      setError('닉네임을 입력해주세요.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      if (emailStep === 'login') {
+        await emailLogin(email.trim(), password);
+        router.replace('/');
+      } else {
+        await emailSignup(email.trim(), password, nickname.trim());
+        router.replace('/');
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      // 401 = 계정 없음 또는 비밀번호 불일치 → 회원가입으로 전환
+      if (emailStep === 'login' && (msg.includes('401') || msg.includes('비밀번호') || msg.includes('Unauthorized'))) {
+        setEmailStep('signup');
+        setError('계정이 없거나 비밀번호가 틀려요. 새로 가입하시려면 닉네임을 입력해주세요.');
+      } else {
+        setError(msg || '문제가 발생했어요.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <Screen style={{ background: C.paper }}>
+    <Screen scrollable style={{ background: C.paper }}>
       {/* pseudo-element 스타일 (인라인으로 표현 불가한 것들) */}
       <style>{`
         .yh-accent::after {
@@ -118,7 +183,8 @@ export function LoginPage() {
 
       {/* 배경만 absolute — 콘텐츠와 분리 */}
       <div style={{
-        position: 'absolute', inset: 0,
+        minHeight: '100dvh',
+        boxSizing: 'border-box',
         background: `
           radial-gradient(420px 280px at 88% -10%, #f6e8c2 0%, transparent 70%),
           radial-gradient(360px 280px at -10% 100%, #efe1ba 0%, transparent 70%),
@@ -131,8 +197,12 @@ export function LoginPage() {
       <div style={{
         position: 'relative',
         display: 'flex', flexDirection: 'column',
+<<<<<<< HEAD
         padding: '56px 28px 36px',
         zIndex: 1,
+=======
+        padding: '15px 28px 36px',
+>>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
       }}>
 
         {/* 브랜드 */}
@@ -310,45 +380,48 @@ export function LoginPage() {
         {/* CTA 버튼 영역 */}
         <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-          {/* Google 로그인 */}
-          <button
-            className="yh-btn"
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-              width: '100%', height: 54, borderRadius: 16,
-              fontSize: 15, fontWeight: 600, fontFamily: FONT_UI,
-              letterSpacing: '-.01em',
-              background: '#ffffff', color: '#1f1f1f',
-              border: '1px solid rgba(34,31,26,.12)',
-              boxShadow: '0 1px 0 rgba(34,31,26,.04), 0 8px 16px -8px rgba(40,30,15,.18)',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.7 : 1,
-              transition: 'transform .15s ease',
-            }}
-          >
-            {loading ? (
-              <div style={{
-                width: 18, height: 18, borderRadius: '50%',
-                border: '2px solid rgba(31,31,31,.2)', borderTopColor: '#1f1f1f',
-                animation: 'spin 0.8s linear infinite',
-              }} />
-            ) : (
-              <span style={{ width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                <GoogleIcon />
-              </span>
-            )}
-            {loading ? '로그인 중...' : 'Google로 계속하기'}
-          </button>
+          {emailStep === 'none' ? (
+            <>
+              {/* Google 로그인 */}
+              <button
+                className="yh-btn"
+                onClick={handleGoogleLogin}
+                disabled={loading}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  width: '100%', height: 54, borderRadius: 16,
+                  fontSize: 15, fontWeight: 600, fontFamily: FONT_UI,
+                  letterSpacing: '-.01em',
+                  background: '#ffffff', color: '#1f1f1f',
+                  border: '1px solid rgba(34,31,26,.12)',
+                  boxShadow: '0 1px 0 rgba(34,31,26,.04), 0 8px 16px -8px rgba(40,30,15,.18)',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading ? 0.7 : 1,
+                  transition: 'transform .15s ease',
+                }}
+              >
+                {loading ? (
+                  <div style={{
+                    width: 18, height: 18, borderRadius: '50%',
+                    border: '2px solid rgba(31,31,31,.2)', borderTopColor: '#1f1f1f',
+                    animation: 'spin 0.8s linear infinite',
+                  }} />
+                ) : (
+                  <span style={{ width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <GoogleIcon />
+                  </span>
+                )}
+                {loading ? '로그인 중...' : 'Google로 계속하기'}
+              </button>
 
-          {/* OR 구분선 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '6px 2px' }}>
-            <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(34,31,26,.18), transparent)' }} />
-            <span style={{ fontSize: 11, color: C.inkFaint, letterSpacing: '.08em', fontWeight: 500 }}>OR</span>
-            <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(34,31,26,.18), transparent)' }} />
-          </div>
+              {/* OR 구분선 */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '6px 2px' }}>
+                <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(34,31,26,.18), transparent)' }} />
+                <span style={{ fontSize: 11, color: C.inkFaint, letterSpacing: '.08em', fontWeight: 500 }}>OR</span>
+                <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(34,31,26,.18), transparent)' }} />
+              </div>
 
+<<<<<<< HEAD
           {/* 이메일로 계속하기 */}
           <button
             className="yh-btn"
@@ -366,6 +439,142 @@ export function LoginPage() {
           >
             이메일로 계속하기
           </button>
+=======
+              {/* 이메일로 계속하기 */}
+              <button
+                className="yh-btn"
+                onClick={() => { setEmailStep('login'); setError(null); }}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  width: '100%', height: 54, borderRadius: 16,
+                  fontSize: 15, fontWeight: 600, fontFamily: FONT_UI,
+                  letterSpacing: '-.01em',
+                  background: 'transparent', color: C.ink2,
+                  border: '1px solid rgba(34,31,26,.18)',
+                  cursor: 'pointer',
+                  transition: 'transform .15s ease',
+                }}
+              >
+                이메일로 계속하기
+              </button>
+            </>
+          ) : (
+            <>
+              {/* 이메일 로그인/회원가입 폼 */}
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                <button
+                  onClick={() => { setEmailStep('none'); setError(null); setEmail(''); setPassword(''); setNickname(''); }}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    fontFamily: FONT_UI, fontSize: 13, color: C.inkSoft, padding: '2px 0',
+                  }}
+                >
+                  ← 돌아가기
+                </button>
+                <span style={{ marginLeft: 'auto', fontFamily: FONT_UI, fontSize: 13, fontWeight: 600, color: C.ink }}>
+                  {emailStep === 'login' ? '로그인' : '회원가입'}
+                </span>
+              </div>
+
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="이메일"
+                style={{
+                  width: '100%', height: 48, borderRadius: 12, padding: '0 16px',
+                  fontSize: 14, fontFamily: FONT_UI, color: C.ink,
+                  background: '#ffffff', border: '1px solid rgba(34,31,26,.15)',
+                  outline: 'none', boxSizing: 'border-box',
+                }}
+              />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && emailStep === 'login' && handleEmailSubmit()}
+                placeholder="비밀번호 (8자 이상)"
+                style={{
+                  width: '100%', height: 48, borderRadius: 12, padding: '0 16px',
+                  fontSize: 14, fontFamily: FONT_UI, color: C.ink,
+                  background: '#ffffff', border: '1px solid rgba(34,31,26,.15)',
+                  outline: 'none', boxSizing: 'border-box',
+                }}
+              />
+
+              {emailStep === 'signup' && (
+                <input
+                  type="text"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleEmailSubmit()}
+                  placeholder="닉네임 (1~32자)"
+                  maxLength={32}
+                  style={{
+                    width: '100%', height: 48, borderRadius: 12, padding: '0 16px',
+                    fontSize: 14, fontFamily: FONT_UI, color: C.ink,
+                    background: '#ffffff', border: '1px solid rgba(34,31,26,.15)',
+                    outline: 'none', boxSizing: 'border-box',
+                  }}
+                />
+              )}
+
+              <button
+                className="yh-btn"
+                onClick={handleEmailSubmit}
+                disabled={loading}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  width: '100%', height: 54, borderRadius: 16,
+                  fontSize: 15, fontWeight: 600, fontFamily: FONT_UI,
+                  letterSpacing: '-.01em',
+                  background: C.sage, color: '#ffffff',
+                  border: 'none',
+                  boxShadow: '0 4px 0 rgba(0,0,0,0.08), 0 8px 16px -8px rgba(40,30,15,.25)',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading ? 0.7 : 1,
+                  transition: 'transform .15s ease',
+                }}
+              >
+                {loading ? (
+                  <div style={{
+                    width: 18, height: 18, borderRadius: '50%',
+                    border: '2px solid rgba(255,255,255,.3)', borderTopColor: '#fff',
+                    animation: 'spin 0.8s linear infinite',
+                  }} />
+                ) : null}
+                {loading ? '처리 중...' : emailStep === 'login' ? '로그인' : '가입하기'}
+              </button>
+
+              {emailStep === 'login' && (
+                <button
+                  onClick={() => { setEmailStep('signup'); setError(null); }}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    fontFamily: FONT_UI, fontSize: 12, color: C.inkSoft,
+                    textDecoration: 'underline', textUnderlineOffset: 2,
+                    padding: '4px 0', alignSelf: 'center',
+                  }}
+                >
+                  계정이 없으신가요? 회원가입
+                </button>
+              )}
+              {emailStep === 'signup' && (
+                <button
+                  onClick={() => { setEmailStep('login'); setError(null); }}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    fontFamily: FONT_UI, fontSize: 12, color: C.inkSoft,
+                    textDecoration: 'underline', textUnderlineOffset: 2,
+                    padding: '4px 0', alignSelf: 'center',
+                  }}
+                >
+                  이미 계정이 있으신가요? 로그인
+                </button>
+              )}
+            </>
+          )}
+>>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
 
           {/* 에러 메시지 */}
           {error && (

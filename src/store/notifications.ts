@@ -1,15 +1,25 @@
 // 알림 누적 store. WebSocket 이벤트가 도착할 때마다 카드로 변환해서 push.
 // Phase 5 A 토스트와 5 C 알림 센터에서 공통 사용.
 import { readSession, useSession, writeSession } from '../lib/session';
-import { MOCK_NOTIFICATIONS, type MockNotification } from '../mocks/data';
 
-export type Notification = MockNotification & {
+export interface Notification {
+  id: string;
+  kind: 'blog:published' | 'photo:processing_progress' | 'member:added_photos';
+  title: string;
+  meta: string;
+  highlight?: boolean;
+  progress?: number;
+  actor?: string;
+  blogId?: string;
+  roomId?: string;
+  jobId?: string;
   receivedAt: string;
   read: boolean;
-};
+}
 
 const KEY = 'yh.notifications';
 
+<<<<<<< HEAD
 // 모듈 레벨에서 한 번만 생성. 매번 새 배열을 만들면 React 의존성 비교가 깨진다.
 const SEED: Notification[] = MOCK_NOTIFICATIONS.map((m, i) => ({
   ...m,
@@ -26,6 +36,10 @@ export function getNotifications(): Notification[] {
     return SEED;
   }
   return stored;
+=======
+export function getNotifications(): Notification[] {
+  return readSession<Notification[]>(KEY, []);
+>>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
 }
 
 export function pushNotification(n: Omit<Notification, 'receivedAt' | 'read'>): void {
@@ -53,11 +67,15 @@ export function useNotifications(): {
   markRead: (id: string) => void;
   push: (n: Omit<Notification, 'receivedAt' | 'read'>) => void;
 } {
+<<<<<<< HEAD
   const [stored] = useSession<Notification[] | null>(KEY, null);
   const effective = stored === null ? SEED : stored;
+=======
+  const [list] = useSession<Notification[]>(KEY, []);
+>>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
   return {
-    list: effective,
-    unread: effective.filter((n) => !n.read).length,
+    list,
+    unread: list.filter((n) => !n.read).length,
     markAllRead,
     markRead,
     push: pushNotification,

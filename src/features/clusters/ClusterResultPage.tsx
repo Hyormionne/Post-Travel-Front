@@ -9,20 +9,28 @@ import { INK, INK_SOFT, INK_FAINT, PAPER, PAPER_2, SAGE, TERRA, FONT_HAND, FONT_
 import type { Cluster, ClusterPhoto } from '../../types/cluster';
 import { fetchClusters, fetchClusterPhotos, triggerBlogDraft } from './api';
 import { FolderCardLive } from './components/FolderCardLive';
+<<<<<<< HEAD
 import { useUploadFlow, setUploadFlow, resetUploadFlow } from '../../store/uploadFlow';
 import { useClusterStream, formatEta } from './hooks/useClusterStream';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+=======
+import { useUploadFlow, setUploadFlow } from '../../store/uploadFlow';
+>>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
 
 export function ClusterResultPage() {
   const router = useRouter();
   const search = useSearchParams();
   const [flow] = useUploadFlow();
+<<<<<<< HEAD
   const rawRoomId = search?.get('roomId') ?? flow.roomId ?? '';
   const roomId = rawRoomId;
 
   // roomId가 유효한 UUID가 아니면 폴링 없이 재업로드 안내
   const isInvalidRoom = !UUID_RE.test(roomId);
+=======
+  const roomId = search?.get('roomId') ?? flow.roomId ?? '';
+>>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
 
   const [clusters, setClusters] = useState<Cluster[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +77,7 @@ export function ClusterResultPage() {
     };
   }, [roomId, isInvalidRoom]);
 
+<<<<<<< HEAD
   // 유효하지 않은 roomId — 재업로드 안내 화면
   if (isInvalidRoom) {
     return (
@@ -100,10 +109,15 @@ export function ClusterResultPage() {
   }
 
   const totalPhotos = flow.photoCount || flow.selectedLocalIds.length || 0;
+=======
+  const photoKeywordIndex = useMemo<Record<string, string[]>>(() => ({}), []);
+
+>>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
   const clusterCount = clusters?.length ?? 0;
   const loading = clusters === null;
   const tripName = flow.cityName || flow.tripName || '새 여행';
 
+<<<<<<< HEAD
   // 진행률 표시용
   const showProgress = !stream.isDone || clusterCount === 0;
   // WebSocket 이벤트가 오면 실제 퍼센트, 없으면 경과 시간 기반 추정 (5분 = 99%)
@@ -121,6 +135,9 @@ export function ClusterResultPage() {
       .then((photos) => { setDetailPhotos(photos); setDetailLoading(false); })
       .catch(() => { setDetailPhotos([]); setDetailLoading(false); });
   };
+=======
+  const tripName = flow.tripName || '여행';
+>>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
 
   const onMagic = async () => {
     if (triggering) return;
@@ -153,10 +170,15 @@ export function ClusterResultPage() {
       <div style={{ position: 'absolute', top: 32, left: 0, right: 0, padding: '6px 16px' }}>
         <div style={{ fontFamily: FONT_HAND, fontSize: 18, color: INK, lineHeight: 1.1 }}>
           {loading
+<<<<<<< HEAD
             ? `✨ ${totalPhotos}장의 사진을 분류하고 있어요…`
             : clusterCount > 0
               ? `✨ ${totalPhotos}장의 사진을 ${clusterCount}개의 추억으로 묶었어요`
               : `✨ ${totalPhotos}장의 사진을 분석 중이에요`}
+=======
+            ? '✨ 사진을 분류하고 있어요…'
+            : `✨ ${clusterCount}개의 추억으로 묶었어요`}
+>>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
         </div>
         <div style={{ fontFamily: FONT_MONO, fontSize: 8, color: INK_SOFT, marginTop: 4 }}>
           {tripName} · {loading ? '분류 중...' : clusterCount > 0 && stream.isDone ? '클러스터링 완료' : 'AI 분석 중...'}
