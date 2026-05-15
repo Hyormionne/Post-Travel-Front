@@ -9,14 +9,14 @@ import { isLoggedIn, getHasProfile } from '../../store/auth';
 
 // 컬러 — 와이어프레임 토큰 (globals.css :root 기준)
 const C = {
-  paper:    '#faf5e8',
-  ink:      '#221f1a',
-  ink2:     '#3a342b',
-  inkSoft:  '#6b6353',
+  paper: '#faf5e8',
+  ink: '#221f1a',
+  ink2: '#3a342b',
+  inkSoft: '#6b6353',
   inkFaint: '#9a917e',
-  coral:    '#c66a4d',
-  sage:     '#9bb583',
-  tan:      '#d9b889',
+  coral: '#c66a4d',
+  sage: '#9bb583',
+  tan: '#d9b889',
 };
 
 export function LoginPage() {
@@ -100,7 +100,7 @@ export function LoginPage() {
   };
 
   return (
-    <Screen style={{ background: C.paper }}>
+    <Screen scrollable style={{ background: C.paper }}>
       {/* pseudo-element 스타일 (인라인으로 표현 불가한 것들) */}
       <style>{`
         .yh-accent::after {
@@ -143,14 +143,15 @@ export function LoginPage() {
 
       {/* 페이지 배경 — 두 radial gradient */}
       <div style={{
-        position: 'absolute', inset: 0,
+        minHeight: '100dvh',
+        boxSizing: 'border-box',
         background: `
           radial-gradient(420px 280px at 88% -10%, #f6e8c2 0%, transparent 70%),
           radial-gradient(360px 280px at -10% 100%, #efe1ba 0%, transparent 70%),
           ${C.paper}
         `,
         display: 'flex', flexDirection: 'column',
-        padding: '56px 28px 36px',
+        padding: '15px 28px 36px',
       }}>
 
         {/* 브랜드 */}
