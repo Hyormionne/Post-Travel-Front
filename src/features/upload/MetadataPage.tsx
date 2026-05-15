@@ -151,8 +151,12 @@ export function MetadataPage() {
 
   // ── 업로드 진행 ──
   const [progress, setProgress] = useState(0);
+  const [uploadedBytes, setUploadedBytes] = useState(0);
+  const [speedMBps, setSpeedMBps] = useState<number | null>(null);
   const [status, setStatus] = useState<'idle' | 'uploading' | 'completing' | 'done' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
+  // 업로드를 한 번만 시작하는 ref
+  const startedRef = useRef(false);
 
   // ── 대표사진: photoCache에서 실제 업로드 파일만 ──
   const uploadedPhotoIds = useMemo(
@@ -348,18 +352,34 @@ export function MetadataPage() {
     router.push(`/clusters?roomId=${encodeURIComponent(flow.roomId)}`);
   };
 
+  // 이름 검증 후 업로드 시작
+  const handleStartWithName = () => {
+    if (!tripName.trim()) {
+      setError('여행 이름을 입력해주세요.');
+      return;
+    }
+    startUpload();
+  };
+
   const inviteUrl = useMemo(() => {
-    const token = flow.inviteToken ?? '4Kj9aB';
+    const token = flow.inviteToken;
+    if (!token) return null;
     return `yht.app/i/${token}`;
   }, [flow.inviteToken]);
 
   const onCopyInvite = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(`https://${inviteUrl}`).catch(() => {});
+      navigator.clipboard.writeText(`https://${inviteUrl}`).catch(() => { });
     }
   };
 
   const doneCount = Math.round(progress * fileCount);
+  // 업로드된 총 바이트 → MB 단위 표시
+  const uploadedMB = (uploadedBytes / (1024 * 1024)).toFixed(1);
+  // 속도: 소수점 1자리, 최소 0.0
+  const speedLabel = speedMBps != null && speedMBps > 0
+    ? `${speedMBps.toFixed(1)} MB/s`
+    : status === 'uploading' ? '...' : status === 'done' ? '✓' : '...';
   const headerLabel =
     status === 'done' ? '업로드 완료'
     : status === 'completing' ? 'AI 분석 시작 중'
@@ -397,7 +417,7 @@ export function MetadataPage() {
           fontFamily: FONT_MONO, fontSize: 9, color: status === 'error' ? TERRA : INK_SOFT,
         }}>
           <span>{status === 'error' ? `오류 · ${error}` : headerLabel}</span>
-          <span>{status === 'uploading' ? '2.4 MB/s' : status === 'done' ? '✓' : '...'}</span>
+          <span style={{ fontVariantNumeric: 'tabular-nums' }}>{speedLabel}</span>
         </div>
         <Progress value={progress} />
         <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>

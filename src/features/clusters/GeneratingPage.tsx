@@ -6,7 +6,7 @@ import { Screen } from '../../components/Screen';
 import { MapBg } from '../../components/MapBg';
 import { ThumbPin, FrostedHeader, FAB, MapToggle, ZoomControls, Toast } from '../../components/ui';
 import { INK, PAPER, TERRA, INK_FAINT, FONT_MONO, SAGE } from '../../theme/tokens';
-import { useFakeProgress } from './hooks/useClusterStream';
+import { useProcessingProgress, useFakeProgress } from './hooks/useClusterStream';
 import { listBlogs } from '../blog/api';
 import { useUploadFlow, setUploadFlow } from '../../store/uploadFlow';
 import { pushNotification } from '../../store/notifications';
@@ -149,7 +149,7 @@ export function GeneratingPage() {
           width: 16, height: 16, borderRadius: '50%',
           border: `2px solid ${INK_FAINT}`,
           borderTopColor: completedBlogId ? SAGE : TERRA,
-          animation: completedBlogId ? 'none' : 'spin 1s linear infinite',
+          animation: (completedBlogId || progress.status === 'SUCCESS') ? 'none' : 'spin 1s linear infinite',
         }} />
         <span style={{ fontFamily: FONT_MONO, fontSize: 9 }}>{dockLabel}</span>
       </div>

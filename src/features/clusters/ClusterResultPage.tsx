@@ -25,6 +25,7 @@ export function ClusterResultPage() {
   const isInvalidRoom = !UUID_RE.test(roomId);
 
   const [clusters, setClusters] = useState<Cluster[] | null>(null);
+  const [analysisComplete, setAnalysisComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [triggering, setTriggering] = useState(false);
 

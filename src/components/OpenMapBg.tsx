@@ -200,5 +200,13 @@ export function OpenMapBg({ pins, center = [134, 38.5], zoom = 5, onPinClick, on
     }
   }, [pins]);
 
+  // center나 zoom이 변경되면 지도 이동
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoadedRef.current) return;
+    map.flyTo({ center, zoom, duration: 1500 });
+  }, [center, zoom]);
+
   return <div ref={containerRef} style={{ position: 'absolute', inset: 0, zIndex: 0 }} />;
 }
+
