@@ -155,8 +155,7 @@ export function MetadataPage() {
   const [speedMBps, setSpeedMBps] = useState<number | null>(null);
   const [status, setStatus] = useState<'idle' | 'uploading' | 'completing' | 'done' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
-  // 업로드를 한 번만 시작하는 ref
-  const startedRef = useRef(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   // ── 대표사진: photoCache에서 실제 업로드 파일만 ──
   const uploadedPhotoIds = useMemo(
@@ -281,7 +280,7 @@ export function MetadataPage() {
     run();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [retryCount]);
 
   // ── 도시 검색 (Nominatim) ──
   const onCityQueryChange = (val: string) => {
@@ -622,13 +621,22 @@ export function MetadataPage() {
 
         {/* ── 완료 버튼 ── */}
         <Btn
-          primary={canComplete}
+          primary={canComplete || status === 'error'}
           full
-          onClick={goCluster}
+          onClick={() => {
+            if (status === 'error') {
+              setUploadFlow({ roomId: null, inviteToken: null });
+              setProgress(0);
+              setError(null);
+              setRetryCount((n) => n + 1);
+            } else {
+              goCluster();
+            }
+          }}
           style={{
             marginTop: 8,
-            opacity: canComplete ? 1 : 0.55,
-            cursor: canComplete ? 'pointer' : 'not-allowed',
+            opacity: (canComplete || status === 'error') ? 1 : 0.55,
+            cursor: (canComplete || status === 'error') ? 'pointer' : 'not-allowed',
           }}
         >
           {status === 'idle'
