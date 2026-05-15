@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Screen } from '../../components/Screen';
 import { FONT_UI, FONT_HAND } from '../../theme/tokens';
-import { loginWithGoogle, mockLogin, emailLogin, emailSignup } from './api';
+import { mockLogin, emailLogin, emailSignup } from './api';
 import { isLoggedIn, getHasProfile } from '../../store/auth';
 import { USE_MOCKS } from '../../lib/mockMode';
 
@@ -39,48 +39,6 @@ export function LoginPage() {
       router.replace(getHasProfile() ? '/' : '/profile-setup');
     }
   }, [router]);
-
-  const handleGoogleLogin = () => {
-    if (IS_MOCK) {
-      mockLogin();
-      router.replace('/profile-setup');
-      return;
-    }
-
-    const g = (window as any).google;
-    if (!g) {
-      setError('Google 로그인을 불러오는 중이에요. 잠시 후 다시 시도해주세요.');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      g.accounts.id.initialize({
-        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-        callback: async ({ credential }: { credential: string }) => {
-          try {
-            // 구글 계정은 백엔드가 upsert 처리 — 신규/기존 구분 없이 바로 메인으로
-            await loginWithGoogle(credential);
-            router.replace('/');
-          } catch (e) {
-            setError(e instanceof Error ? e.message : '로그인에 실패했어요.');
-            setLoading(false);
-          }
-        },
-      });
-      g.accounts.id.prompt((notification: any) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          setError('Google 로그인 팝업이 차단됐어요. 팝업 허용 후 다시 시도해주세요.');
-          setLoading(false);
-        }
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '로그인에 실패했어요.');
-      setLoading(false);
-    }
-  };
 
   const handleEmailSubmit = async () => {
     if (IS_MOCK) {
@@ -362,45 +320,6 @@ export function LoginPage() {
 
           {emailStep === 'none' ? (
             <>
-              {/* Google 로그인 */}
-              <button
-                className="yh-btn"
-                onClick={handleGoogleLogin}
-                disabled={loading}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                  width: '100%', height: 54, borderRadius: 16,
-                  fontSize: 15, fontWeight: 600, fontFamily: FONT_UI,
-                  letterSpacing: '-.01em',
-                  background: '#ffffff', color: '#1f1f1f',
-                  border: '1px solid rgba(34,31,26,.12)',
-                  boxShadow: '0 1px 0 rgba(34,31,26,.04), 0 8px 16px -8px rgba(40,30,15,.18)',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  opacity: loading ? 0.7 : 1,
-                  transition: 'transform .15s ease',
-                }}
-              >
-                {loading ? (
-                  <div style={{
-                    width: 18, height: 18, borderRadius: '50%',
-                    border: '2px solid rgba(31,31,31,.2)', borderTopColor: '#1f1f1f',
-                    animation: 'spin 0.8s linear infinite',
-                  }} />
-                ) : (
-                  <span style={{ width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <GoogleIcon />
-                  </span>
-                )}
-                {loading ? '로그인 중...' : 'Google로 계속하기'}
-              </button>
-
-              {/* OR 구분선 */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '6px 2px' }}>
-                <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(34,31,26,.18), transparent)' }} />
-                <span style={{ fontSize: 11, color: C.inkFaint, letterSpacing: '.08em', fontWeight: 500 }}>OR</span>
-                <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(34,31,26,.18), transparent)' }} />
-              </div>
-
               {/* 이메일로 계속하기 */}
               <button
                 className="yh-btn"
@@ -410,13 +329,14 @@ export function LoginPage() {
                   width: '100%', height: 54, borderRadius: 16,
                   fontSize: 15, fontWeight: 600, fontFamily: FONT_UI,
                   letterSpacing: '-.01em',
-                  background: 'transparent', color: C.ink2,
-                  border: '1px solid rgba(34,31,26,.18)',
+                  background: C.sage, color: '#ffffff',
+                  border: 'none',
+                  boxShadow: '0 4px 0 rgba(0,0,0,0.08), 0 8px 16px -8px rgba(40,30,15,.25)',
                   cursor: 'pointer',
                   transition: 'transform .15s ease',
                 }}
               >
-                이메일로 계속하기
+                이메일로 시작하기
               </button>
             </>
           ) : (
@@ -561,13 +481,3 @@ export function LoginPage() {
   );
 }
 
-function GoogleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18">
-      <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.71v2.26h2.91c1.7-1.57 2.69-3.88 2.69-6.61z" />
-      <path fill="#34A853" d="M9 18c2.43 0 4.47-.81 5.96-2.19l-2.91-2.26c-.8.54-1.83.86-3.05.86-2.34 0-4.33-1.58-5.04-3.71H.96v2.33A9 9 0 0 0 9 18z" />
-      <path fill="#FBBC05" d="M3.96 10.7A5.41 5.41 0 0 1 3.68 9c0-.59.1-1.16.28-1.7V4.97H.96A9 9 0 0 0 0 9c0 1.45.35 2.82.96 4.03l3-2.33z" />
-      <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.97l3 2.33C4.67 5.16 6.66 3.58 9 3.58z" />
-    </svg>
-  );
-}

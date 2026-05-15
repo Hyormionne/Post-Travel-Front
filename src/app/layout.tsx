@@ -16,7 +16,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600&family=Gaegu:wght@400;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap"
           rel="stylesheet"
         />
-        <script src="https://accounts.google.com/gsi/client" async></script>
       </head>
       <body>{children}</body>
     </html>
