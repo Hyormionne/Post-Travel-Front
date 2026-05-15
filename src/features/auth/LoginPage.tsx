@@ -163,8 +163,7 @@ export function LoginPage() {
 
       {/* 배경만 absolute — 콘텐츠와 분리 */}
       <div style={{
-        minHeight: '100dvh',
-        boxSizing: 'border-box',
+        position: 'absolute', inset: 0,
         background: `
           radial-gradient(420px 280px at 88% -10%, #f6e8c2 0%, transparent 70%),
           radial-gradient(360px 280px at -10% 100%, #efe1ba 0%, transparent 70%),
