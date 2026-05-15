@@ -83,6 +83,11 @@ export function LoginPage() {
   };
 
   const handleEmailSubmit = async () => {
+    if (IS_MOCK) {
+      mockLogin();
+      router.replace('/profile-setup');
+      return;
+    }
     if (!email.trim() || !password) {
       setError('이메일과 비밀번호를 입력해주세요.');
       return;
