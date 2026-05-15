@@ -55,7 +55,8 @@ export function ClusterResultPage() {
         .then((cs) => {
           if (cancelled) return;
           setClusters(cs);
-          timerId = setTimeout(load, 5000);
+          // 클러스터가 없을 때만 계속 폴링
+          if (cs.length === 0) timerId = setTimeout(load, 5000);
         })
         .catch((e) => {
           if (cancelled) return;
@@ -161,7 +162,7 @@ export function ClusterResultPage() {
               : `✨ ${totalPhotos}장의 사진을 분석 중이에요`}
         </div>
         <div style={{ fontFamily: FONT_MONO, fontSize: 8, color: INK_SOFT, marginTop: 4 }}>
-          {tripName} · {loading ? '분류 중...' : clusterCount > 0 && stream.isDone ? '클러스터링 완료' : 'AI 분석 중...'}
+          {tripName}{!isComplete && ' · AI 분석 중...'}
         </div>
 
         {/* 진행률 바 */}
