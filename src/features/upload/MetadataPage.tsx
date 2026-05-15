@@ -243,18 +243,25 @@ export function MetadataPage() {
         setProgress(1);
         setStatus('completing');
 
-        // takenAt: travelDatesRef에서 최신 날짜 배열을 읽어 사진에 분산
+        // takenAt: 선택한 날짜로 사진에 분산, 미선택 시 오늘 날짜 fallback (없으면 Uncategorized)
         const dates = travelDatesRef.current.slice().sort();
+        const today = new Date().toISOString().slice(0, 10);
+        const effectiveDates = dates.length > 0 ? dates : [today];
+        // 도시 좌표 (저장된 값 우선)
+        const cityLat = selectedCity?.lat ?? flow.cityLat ?? null;
+        const cityLng = selectedCity?.lng ?? flow.cityLng ?? null;
         const photos = presigned.map((p, i) => {
+          const dateIdx = Math.min(Math.floor((i / presigned.length) * effectiveDates.length), effectiveDates.length - 1);
           const item: import('../../types/photo').PhotoCompleteItem = {
             photoId: p.photoId,
             s3Key: p.original.key,
             thumbnailKey: p.thumbnail.key,
             fileSize: Math.max(1, fileInfos[i]?.blob.size ?? 1024),
+            takenAt: `${effectiveDates[dateIdx]}T10:00:00.000Z`,
           };
-          if (dates.length > 0) {
-            const dateIdx = Math.min(Math.floor((i / presigned.length) * dates.length), dates.length - 1);
-            item.takenAt = `${dates[dateIdx]}T10:00:00.000Z`;
+          if (cityLat && cityLng) {
+            item.lat = cityLat;
+            item.lng = cityLng;
           }
           return item;
         });
