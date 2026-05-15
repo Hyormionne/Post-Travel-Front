@@ -10,16 +10,22 @@ export interface MarkerCustom {
 }
 
 export interface UploadFlowState {
-  // 선택된 사진들의 임시 ID (presigned 발급 전엔 로컬 인덱스)
   selectedLocalIds: string[];
   tripName: string;
   marker: MarkerCustom;
   invitedNames: string[];
   coverPhotoId: string | null;
-  // 업로드 시작 후 받은 룸 ID (presigned + complete 호출용)
   roomId: string | null;
   inviteToken: string | null;
   jobId: string | null;
+  // 도시 (Nominatim geocoding 결과)
+  cityName: string;
+  cityLat: number | null;
+  cityLng: number | null;
+  // 여행 날짜 (복수 선택, 'YYYY-MM-DD' 형식)
+  travelDates: string[];
+  // 실제 업로드된 사진 수 (completeUpload 응답에서)
+  photoCount: number;
 }
 
 const KEY = 'yh.uploadFlow';
@@ -34,11 +40,16 @@ const DEFAULT_STATE: UploadFlowState = {
   selectedLocalIds: [],
   tripName: '',
   marker: DEFAULT_MARKER,
-  invitedNames: ['나'],
+  invitedNames: [],
   coverPhotoId: null,
   roomId: null,
   inviteToken: null,
   jobId: null,
+  cityName: '',
+  cityLat: null,
+  cityLng: null,
+  travelDates: [],
+  photoCount: 0,
 };
 
 export function getUploadFlow(): UploadFlowState {

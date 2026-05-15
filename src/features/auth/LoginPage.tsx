@@ -17,7 +17,7 @@ const C = {
   inkSoft:  '#6b6353',
   inkFaint: '#9a917e',
   coral:    '#c66a4d',
-  sage:     '#9bb583',
+  sage:     '#5a7a4a', // 더 진한 sage (버튼 가독성)
   tan:      '#d9b889',
 };
 
@@ -51,7 +51,7 @@ export function LoginPage() {
       //   },
       // });
       // google.accounts.id.prompt();
-      setError('NEXT_PUBLIC_MOCK_MODE=true 로 개발을 시작하세요.');
+      setError('구글 로그인은 준비 중입니다. 이메일로 계속하기를 이용해주세요.');
     } catch (e) {
       setError(e instanceof Error ? e.message : '로그인에 실패했어요.');
     } finally {
@@ -101,7 +101,7 @@ export function LoginPage() {
         .yh-btn:active { transform: scale(.985); }
       `}</style>
 
-      {/* 페이지 배경 — 두 radial gradient */}
+      {/* 배경만 absolute — 콘텐츠와 분리 */}
       <div style={{
         position: 'absolute', inset: 0,
         background: `
@@ -109,8 +109,15 @@ export function LoginPage() {
           radial-gradient(360px 280px at -10% 100%, #efe1ba 0%, transparent 70%),
           ${C.paper}
         `,
+        pointerEvents: 'none',
+      }} />
+
+      {/* 콘텐츠 — 자연스럽게 흐르는 flex column */}
+      <div style={{
+        position: 'relative',
         display: 'flex', flexDirection: 'column',
         padding: '56px 28px 36px',
+        zIndex: 1,
       }}>
 
         {/* 브랜드 */}
@@ -135,8 +142,8 @@ export function LoginPage() {
         {/* 히어로 일러스트 */}
         <div style={{
           position: 'relative',
-          height: 296,
-          margin: '26px -4px 0',
+          height: 220,
+          margin: '18px -4px 0',
           borderRadius: 22,
           background: 'linear-gradient(180deg, #f7e6bb 0%, #ead0a0 60%, #d9b889 100%)',
           overflow: 'hidden',
@@ -264,7 +271,7 @@ export function LoginPage() {
         </div>
 
         {/* 태그라인 */}
-        <div style={{ marginTop: 26, textAlign: 'left' }}>
+        <div style={{ marginTop: 18, textAlign: 'left' }}>
           <h1 style={{
             margin: 0,
             fontFamily: FONT_UI,
@@ -286,7 +293,7 @@ export function LoginPage() {
         </div>
 
         {/* CTA 버튼 영역 */}
-        <div style={{ marginTop: 'auto', paddingTop: 24, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
           {/* Google 로그인 */}
           <button
@@ -330,6 +337,7 @@ export function LoginPage() {
           {/* 이메일로 계속하기 */}
           <button
             className="yh-btn"
+            onClick={() => router.push('/login/email')}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               width: '100%', height: 54, borderRadius: 16,

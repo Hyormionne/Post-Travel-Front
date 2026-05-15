@@ -59,7 +59,7 @@ export async function patchClusterTitle(clusterId: string, body: UpdateClusterRe
 export async function triggerBlogDraft(roomId: string): Promise<{ jobId: string }> {
   return withMockFallback(
     async () => {
-      const res = await realFetch(`${API_BASE}/rooms/${roomId}/blog-draft`, {
+      const res = await realFetch(`${API_BASE}/blogs/${roomId}/generate`, {
         method: 'POST',
         credentials: 'include',
       });

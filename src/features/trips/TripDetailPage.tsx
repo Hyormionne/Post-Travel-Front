@@ -83,11 +83,7 @@ export function TripDetailPage() {
     };
   }, [roomId]);
 
-  const photoKeywordIndex = useMemo(() => {
-    const idx: Record<string, string[]> = {};
-    for (const p of MOCK_PHOTOS) idx[p.id] = p.aiKeywords;
-    return idx;
-  }, []);
+
 
   const sortedBlogs = useMemo(() => {
     const me = MOCK_USER.id;
@@ -250,7 +246,6 @@ export function TripDetailPage() {
                 <FolderCardLive
                   key={c.id}
                   cluster={c}
-                  photoKeywordIndex={photoKeywordIndex}
                   onClick={() =>
                     router.push(
                       `/editor?roomId=${encodeURIComponent(roomId)}&cluster=${encodeURIComponent(c.id)}`,

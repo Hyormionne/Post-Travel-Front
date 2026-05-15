@@ -9,6 +9,7 @@ interface PhotoTileProps {
   style?: CSSProperties;
   picked?: boolean;
   kind?: string;
+  src?: string;
 }
 
 const TONES: [string, string][] = [
@@ -19,7 +20,7 @@ const TONES: [string, string][] = [
   ['#e1d3a8', '#bda973'],
 ];
 
-export function PhotoTile({ w = 60, h = 60, label, dim = 1, style, picked = false, kind }: PhotoTileProps) {
+export function PhotoTile({ w = 60, h = 60, label, dim = 1, style, picked = false, kind, src }: PhotoTileProps) {
   const [a, b] = TONES[Math.abs((label || '').charCodeAt(0) || 0) % TONES.length];
   const sw = typeof w === 'number' ? w : 80;
   const sh = typeof h === 'number' ? h : 80;
@@ -27,23 +28,32 @@ export function PhotoTile({ w = 60, h = 60, label, dim = 1, style, picked = fals
   return (
     <div style={{
       width: w, height: h, position: 'relative', borderRadius: 4,
-      background: `linear-gradient(135deg, ${a}, ${b})`,
+      background: src ? '#e8e0d0' : `linear-gradient(135deg, ${a}, ${b})`,
       border: `1px solid ${picked ? TERRA : INK}`,
       boxShadow: picked ? `0 0 0 2px ${TERRA}` : 'none',
       overflow: 'hidden', flexShrink: 0,
       opacity: dim,
       ...style,
     }}>
-      <svg width="100%" height="100%" viewBox={`0 0 ${sw} ${sh}`}
-        preserveAspectRatio="none"
-        style={{ position: 'absolute', inset: 0 }}>
-        <line x1={0} y1={sh * 0.7} x2={sw * 0.4} y2={sh * 0.3}
-          stroke="rgba(255,255,255,0.45)" strokeWidth={1} />
-        <line x1={sw * 0.3} y1={sh} x2={sw} y2={sh * 0.4}
-          stroke="rgba(0,0,0,0.15)" strokeWidth={1} />
-        <circle cx={sw * 0.7} cy={sh * 0.35} r={Math.min(sw, sh) * 0.12}
-          fill="rgba(255,255,255,0.5)" />
-      </svg>
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt=""
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+      ) : (
+        <svg width="100%" height="100%" viewBox={`0 0 ${sw} ${sh}`}
+          preserveAspectRatio="none"
+          style={{ position: 'absolute', inset: 0 }}>
+          <line x1={0} y1={sh * 0.7} x2={sw * 0.4} y2={sh * 0.3}
+            stroke="rgba(255,255,255,0.45)" strokeWidth={1} />
+          <line x1={sw * 0.3} y1={sh} x2={sw} y2={sh * 0.4}
+            stroke="rgba(0,0,0,0.15)" strokeWidth={1} />
+          <circle cx={sw * 0.7} cy={sh * 0.35} r={Math.min(sw, sh) * 0.12}
+            fill="rgba(255,255,255,0.5)" />
+        </svg>
+      )}
       {kind && (
         <span style={{
           position: 'absolute', top: 2, left: 3,

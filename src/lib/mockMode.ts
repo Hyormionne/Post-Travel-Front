@@ -10,19 +10,30 @@ export const API_BASE =
   (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_BASE) ||
   'http://localhost:3000';
 
-export const REAL_TIMEOUT_MS = 2500;
+export const REAL_TIMEOUT_MS = 30000; // S3 업로드 포함 충분한 타임아웃
 
 export function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-// 실 API 호출 — AbortController로 타임아웃 부여
+function getStoredToken(): string | null {
+  try {
+    return typeof window !== 'undefined' ? localStorage.getItem('yh_access') : null;
+  } catch {
+    return null;
+  }
+}
+
+// 실 API 호출 — Authorization 헤더 자동 주입, AbortController로 타임아웃 부여
 export async function realFetch(url: string, init: RequestInit & { timeoutMs?: number } = {}): Promise<Response> {
   const { timeoutMs = REAL_TIMEOUT_MS, ...rest } = init;
   const ctrl = new AbortController();
   const id = setTimeout(() => ctrl.abort(), timeoutMs);
+  const token = getStoredToken();
+  const headers: Record<string, string> = { ...(rest.headers as Record<string, string>) };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
   try {
-    return await fetch(url, { ...rest, signal: ctrl.signal });
+    return await fetch(url, { ...rest, headers, signal: ctrl.signal });
   } finally {
     clearTimeout(id);
   }
