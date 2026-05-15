@@ -32,29 +32,44 @@ export function LoginPage() {
     }
   }, [router]);
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = () => {
+    if (IS_MOCK) {
+      mockLogin();
+      router.replace('/profile-setup');
+      return;
+    }
+
+    const g = (window as any).google;
+    if (!g) {
+      setError('Google 로그인을 불러오는 중이에요. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
+
     try {
-      if (IS_MOCK) {
-        mockLogin();
-        router.replace('/profile-setup');
-        return;
-      }
-      // 실제 Google OAuth: NEXT_PUBLIC_GOOGLE_CLIENT_ID 설정 후 아래 주석 해제
-      // const { google } = window as any;
-      // google.accounts.id.initialize({
-      //   client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-      //   callback: async ({ credential }: { credential: string }) => {
-      //     const { hasProfile } = await loginWithGoogle(credential);
-      //     router.replace(hasProfile ? '/' : '/profile-setup');
-      //   },
-      // });
-      // google.accounts.id.prompt();
-      setError('구글 로그인은 준비 중입니다. 이메일로 계속하기를 이용해주세요.');
+      g.accounts.id.initialize({
+        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+        callback: async ({ credential }: { credential: string }) => {
+          try {
+            // 구글 계정은 백엔드가 upsert 처리 — 신규/기존 구분 없이 바로 메인으로
+            await loginWithGoogle(credential);
+            router.replace('/');
+          } catch (e) {
+            setError(e instanceof Error ? e.message : '로그인에 실패했어요.');
+            setLoading(false);
+          }
+        },
+      });
+      g.accounts.id.prompt((notification: any) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          setError('Google 로그인 팝업이 차단됐어요. 팝업 허용 후 다시 시도해주세요.');
+          setLoading(false);
+        }
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : '로그인에 실패했어요.');
-    } finally {
       setLoading(false);
     }
   };

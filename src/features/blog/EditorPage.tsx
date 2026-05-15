@@ -90,10 +90,13 @@ export function EditorPage() {
           b = await getBlog('blog-1');
         }
         if (cancelled) return;
+        // 임시저장된 내용이 있으면 복원
+        const raw = sessionStorage.getItem(`yh_draft_${b.id}`);
+        const draft = raw ? JSON.parse(raw) as { title: string; content: string } : null;
         setBlog(b);
-        setTitle(b.title);
+        setTitle(draft?.title ?? b.title);
         if (editor && !editor.isDestroyed) {
-          editor.commands.setContent(b.content || '');
+          editor.commands.setContent(draft?.content ?? b.content ?? '');
         }
         setTimeout(() => {
           initialized.current = true;
@@ -129,6 +132,17 @@ export function EditorPage() {
   }, [title]);
 
   const onBack = () => router.back();
+
+  // 임시저장: sessionStorage에만 보관 (DB 없음, 탭 닫으면 사라짐)
+  const onSaveNow = () => {
+    if (!blog) return;
+    const draft = { blogId: blog.id, title, content: editor?.getHTML() ?? '' };
+    sessionStorage.setItem(`yh_draft_${blog.id}`, JSON.stringify(draft));
+    setSave('saved');
+    router.push('/');
+  };
+
+  const onCancel = () => router.push('/');
 
   const onPublish = async () => {
     if (!blog || publishing) return;
@@ -213,12 +227,12 @@ export function EditorPage() {
           </div>
         )}
         <Btn primary onClick={onPublish} style={{ padding: '6px 12px', fontSize: 11, opacity: publishing ? 0.7 : 1 }}>
-          {publishing ? '발행 중...' : blog?.publishedAt ? '재발행' : '최종 발행'}
+          {publishing ? '발행 중...' : '작성 완료'}
         </Btn>
       </div>
 
       {/* Body */}
-      <div style={{ padding: '12px 16px 100px' }}>
+      <div style={{ padding: '12px 16px 140px' }}>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -326,13 +340,45 @@ export function EditorPage() {
       {/* Bottom toolbar */}
       <div style={{
         position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
-        width: '100%', maxWidth: 390, height: 48,
+        width: '100%', maxWidth: 390,
         background: PAPER, borderTop: `1px solid ${INK_FAINT}`,
-        display: 'flex', alignItems: 'center',
-        padding: '0 8px',
-        fontFamily: FONT_MONO, fontSize: 11, color: INK_SOFT,
         zIndex: 20,
       }}>
+        {/* 임시저장 / 작성 취소 */}
+        <div style={{
+          display: 'flex', gap: 8, padding: '8px 14px',
+          borderBottom: `1px solid ${INK_FAINT}`,
+        }}>
+          <button
+            onClick={onSaveNow}
+            style={{
+              flex: 1, height: 36, borderRadius: 8,
+              border: `1.2px solid ${SAGE}`, background: 'transparent',
+              color: SAGE, fontFamily: FONT_UI, fontSize: 12, fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            {save === 'saving' ? '저장 중...' : '임시저장'}
+          </button>
+          <button
+            onClick={onCancel}
+            style={{
+              flex: 1, height: 36, borderRadius: 8,
+              border: `1.2px solid ${INK_FAINT}`, background: 'transparent',
+              color: INK_SOFT, fontFamily: FONT_UI, fontSize: 12, fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            작성 취소
+          </button>
+        </div>
+
+        {/* 서식 툴바 */}
+        <div style={{
+          height: 48, display: 'flex', alignItems: 'center',
+          padding: '0 8px',
+          fontFamily: FONT_MONO, fontSize: 11, color: INK_SOFT,
+        }}>
         <ToolbarBtn
           label="B"
           active={toolbarFormat.bold}
@@ -365,6 +411,7 @@ export function EditorPage() {
         />
         <div style={{ width: 1, height: 20, background: INK_FAINT, margin: '0 2px' }} />
         <ToolbarBtn label="🖼" active={false} onClick={onPickImage} title="사진 추가" />
+        </div>
       </div>
     </Screen>
   );

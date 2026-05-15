@@ -12,7 +12,7 @@ import {
 import { useUploadFlow, setUploadFlow } from '../../store/uploadFlow';
 import { photoCache } from '../../store/photoCache';
 import type { MarkerBgColor } from '../../types/room';
-import { createRoom, getPresignedUrls, putToS3, completeUpload } from './api';
+import { createRoom, updateRoomMarker, getPresignedUrls, putToS3, completeUpload } from './api';
 
 const BG_COLORS: MarkerBgColor[] = ['#d8c9a5', '#cfd8c2', '#e2c9bc', '#c9d2db', '#decfd8', '#f0ead2'];
 
@@ -171,17 +171,30 @@ export function MetadataPage() {
     async function run() {
       try {
         setStatus('uploading');
+        const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
         let roomId = flow.roomId;
+        // 저장된 roomId가 mock ID(UUID 아님)면 버리고 재생성
+        if (roomId && !UUID_RE.test(roomId)) {
+          roomId = null;
+          setUploadFlow({ roomId: null, inviteToken: null });
+        }
+
         if (!roomId) {
-          const room = await createRoom({
-            title: flow.cityName || tripName || '새 여행',
+          // title만 전송 (백엔드 CreateRoomDto에 title만 있음)
+          const room = await createRoom({ title: flow.cityName || tripName || '새 여행' });
+          if (cancelled) return;
+          if (!UUID_RE.test(room.id)) {
+            throw new Error('방 생성에 실패했어요. 로그인 상태를 확인하고 다시 시도해주세요.');
+          }
+          roomId = room.id;
+          setUploadFlow({ roomId, inviteToken: room.inviteToken });
+          // 마커는 별도 PATCH로 설정 — 실패해도 업로드 흐름은 계속
+          updateRoomMarker(roomId, {
             markerEmoji: marker.emoji,
             markerBgColor: marker.bgColor,
             markerShape: marker.shape,
-          });
-          if (cancelled) return;
-          roomId = room.id;
-          setUploadFlow({ roomId, inviteToken: room.inviteToken });
+          }).catch((e) => console.warn('[marker] updateRoomMarker failed:', e));
         }
 
         // 실제 파일: photoCache에 ObjectURL이 있는 'file-xxx' ID들

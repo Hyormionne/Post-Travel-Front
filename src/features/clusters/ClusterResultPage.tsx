@@ -9,14 +9,20 @@ import { INK, INK_SOFT, INK_FAINT, PAPER, PAPER_2, SAGE, TERRA, FONT_HAND, FONT_
 import type { Cluster, ClusterPhoto } from '../../types/cluster';
 import { fetchClusters, fetchClusterPhotos, triggerBlogDraft } from './api';
 import { FolderCardLive } from './components/FolderCardLive';
-import { useUploadFlow, setUploadFlow } from '../../store/uploadFlow';
+import { useUploadFlow, setUploadFlow, resetUploadFlow } from '../../store/uploadFlow';
 import { useClusterStream, formatEta } from './hooks/useClusterStream';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function ClusterResultPage() {
   const router = useRouter();
   const search = useSearchParams();
   const [flow] = useUploadFlow();
-  const roomId = search?.get('roomId') ?? flow.roomId ?? 'room-001';
+  const rawRoomId = search?.get('roomId') ?? flow.roomId ?? '';
+  const roomId = rawRoomId;
+
+  // roomId가 유효한 UUID가 아니면 폴링 없이 재업로드 안내
+  const isInvalidRoom = !UUID_RE.test(roomId);
 
   const [clusters, setClusters] = useState<Cluster[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -28,16 +34,18 @@ export function ClusterResultPage() {
   const [detailLoading, setDetailLoading] = useState(false);
 
   const refetch = useCallback(() => {
+    if (isInvalidRoom) return;
     fetchClusters(roomId)
       .then(setClusters)
       .catch((e) => setError(e instanceof Error ? e.message : 'load failed'));
-  }, [roomId]);
+  }, [roomId, isInvalidRoom]);
 
   // WebSocket 진행률 (cluster:created 시 자동 refetch)
-  const stream = useClusterStream(roomId, refetch);
+  const stream = useClusterStream(isInvalidRoom ? '' : roomId, refetch);
 
-  // 초기 fetch + 5초 polling
+  // 초기 fetch + 5초 polling — 유효하지 않은 roomId면 건너뜀
   useEffect(() => {
+    if (isInvalidRoom) return;
     let cancelled = false;
     let timerId: ReturnType<typeof setTimeout> | null = null;
 
@@ -59,7 +67,37 @@ export function ClusterResultPage() {
       cancelled = true;
       if (timerId) clearTimeout(timerId);
     };
-  }, [roomId]);
+  }, [roomId, isInvalidRoom]);
+
+  // 유효하지 않은 roomId — 재업로드 안내 화면
+  if (isInvalidRoom) {
+    return (
+      <Screen>
+        <div style={{ position: 'absolute', inset: 0, background: PAPER }} />
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          padding: '0 32px', gap: 16, textAlign: 'center',
+        }}>
+          <span style={{ fontSize: 40 }}>⚠️</span>
+          <div style={{ fontFamily: FONT_HAND, fontSize: 18, color: INK }}>
+            업로드 정보가 초기화됐어요
+          </div>
+          <div style={{ fontFamily: FONT_UI, fontSize: 12, color: INK_SOFT, lineHeight: 1.6 }}>
+            이전 세션의 데이터가 유효하지 않아요.<br />
+            사진을 다시 업로드해 주세요.
+          </div>
+          <Btn primary full onClick={() => { resetUploadFlow(); router.push('/upload'); }}>
+            사진 다시 업로드
+          </Btn>
+          <Btn full onClick={() => { resetUploadFlow(); router.push('/'); }}>
+            메인으로 돌아가기
+          </Btn>
+        </div>
+      </Screen>
+    );
+  }
 
   const totalPhotos = flow.photoCount || flow.selectedLocalIds.length || 0;
   const clusterCount = clusters?.length ?? 0;

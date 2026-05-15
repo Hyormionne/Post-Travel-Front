@@ -16,27 +16,76 @@ export function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-function getStoredToken(): string | null {
+function getStoredToken(key: 'yh_access' | 'yh_refresh'): string | null {
   try {
-    return typeof window !== 'undefined' ? localStorage.getItem('yh_access') : null;
+    return typeof window !== 'undefined' ? localStorage.getItem(key) : null;
   } catch {
     return null;
   }
 }
 
-// 실 API 호출 — Authorization 헤더 자동 주입, AbortController로 타임아웃 부여
+// 토큰 갱신 — POST /auth/refresh (refresh token을 헤더에 실음)
+// rotation 방식: 한 번 쓰면 블랙리스트, 응답으로 새 쌍 받음
+let refreshPromise: Promise<boolean> | null = null;
+
+async function tryRefresh(): Promise<boolean> {
+  // 동시에 여러 요청이 401 나도 refresh는 한 번만
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    const refreshToken = getStoredToken('yh_refresh');
+    if (!refreshToken) return false;
+    try {
+      const res = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${refreshToken}` },
+      });
+      if (!res.ok) return false;
+      const data = await res.json() as { accessToken: string; refreshToken: string };
+      localStorage.setItem('yh_access', data.accessToken);
+      localStorage.setItem('yh_refresh', data.refreshToken);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+  return refreshPromise;
+}
+
+// 실 API 호출 — Authorization 헤더 자동 주입, 401 시 토큰 갱신 후 재시도
 export async function realFetch(url: string, init: RequestInit & { timeoutMs?: number } = {}): Promise<Response> {
   const { timeoutMs = REAL_TIMEOUT_MS, ...rest } = init;
-  const ctrl = new AbortController();
-  const id = setTimeout(() => ctrl.abort(), timeoutMs);
-  const token = getStoredToken();
-  const headers: Record<string, string> = { ...(rest.headers as Record<string, string>) };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  try {
-    return await fetch(url, { ...rest, headers, signal: ctrl.signal });
-  } finally {
-    clearTimeout(id);
+
+  const doFetch = (token: string | null) => {
+    const ctrl = new AbortController();
+    const id = setTimeout(() => ctrl.abort(), timeoutMs);
+    const headers: Record<string, string> = { ...(rest.headers as Record<string, string>) };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return fetch(url, { ...rest, headers, signal: ctrl.signal }).finally(() => clearTimeout(id));
+  };
+
+  const res = await doFetch(getStoredToken('yh_access'));
+
+  // 401: 토큰 만료 → refresh 시도 후 재요청
+  if (res.status === 401) {
+    const ok = await tryRefresh();
+    if (ok) {
+      return doFetch(getStoredToken('yh_access'));
+    }
+    // refresh도 실패 → 로그아웃 처리
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('yh_access');
+      localStorage.removeItem('yh_refresh');
+      localStorage.removeItem('yh_profile');
+      localStorage.removeItem('yh_user');
+      document.cookie = 'yh_session=; path=/; max-age=0';
+      document.cookie = 'yh_profile=; path=/; max-age=0';
+      window.location.href = '/login';
+    }
   }
+
+  return res;
 }
 
 // real 우선 시도, 실패/타임아웃 시 mock 폴백.
@@ -48,7 +97,7 @@ export async function withMockFallback<T>(real: () => Promise<T>, mock: () => Pr
   } catch (err) {
     if (typeof console !== 'undefined') {
       // eslint-disable-next-line no-console
-      console.warn('[api] real call failed, falling back to mock:', err);
+      console.warn('[api] real API failed → mock fallback:', err);
     }
     return mock();
   }
