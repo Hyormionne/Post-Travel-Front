@@ -34,19 +34,14 @@ export function GeneratingPage() {
   const router = useRouter();
   const search = useSearchParams();
   const [flow] = useUploadFlow();
-<<<<<<< HEAD
   const roomId = search?.get('roomId') ?? flow.roomId ?? 'room-001';
   const jobId = search?.get('jobId') ?? flow.jobId ?? null;
 
-=======
-  const roomId = search?.get('roomId') ?? flow.roomId ?? '';
->>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
   const [toastVisible, setToastVisible] = useState(true);
   const [blogReady, setBlogReady] = useState(false);
   const [completedBlogId, setCompletedBlogId] = useState<string | null>(null);
   const handledRef = useRef(false);
 
-<<<<<<< HEAD
   // 비주얼 진행률 (가짜) — WebSocket 응답 전까지 UX용
   const progress = useFakeProgress({ enabled: !blogReady, totalSteps: 8, stepMs: 600 });
 
@@ -117,38 +112,6 @@ export function GeneratingPage() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId, jobId]);
-=======
-  const progress = useFakeProgress({
-    enabled: true,
-    totalSteps: 5,
-    stepMs: 700,
-    onSuccess: async () => {
-      // 백엔드 job이 생성한 블로그를 폴링으로 찾기
-      try {
-        const blogs = await listBlogs(roomId);
-        const latest = blogs[0];
-        if (latest) {
-          setCompletedBlogId(latest.id);
-          pushNotification({
-            id: `n-${latest.id}`,
-            kind: 'blog:published',
-            blogId: latest.id,
-            roomId,
-            title: `'${latest.title}' 초안 완성`,
-            meta: '방금',
-            highlight: true,
-          });
-          setTimeout(() => router.push(`/editor?blogId=${encodeURIComponent(latest.id)}`), 1200);
-        } else {
-          // 아직 생성 안 됨 — 여행 상세로 이동
-          setTimeout(() => router.push(`/trip-detail?roomId=${encodeURIComponent(roomId)}`), 1200);
-        }
-      } catch {
-        // 실패 시 사용자 액션 대기
-      }
-    },
-  });
->>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
 
   useEffect(() => {
     const t = setTimeout(() => setToastVisible(false), 5000);

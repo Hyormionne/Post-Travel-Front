@@ -80,15 +80,9 @@ export function MainMapPage() {
   return (
     <Screen>
       <OpenMapBg
-<<<<<<< HEAD
         pins={groups.map((g) => ({ lat: g.lat, lng: g.lng, label: g.trips[0].emoji }))}
-        center={[134, 38.5]}
-        zoom={5}
-=======
-        pins={trips.map((t) => ({ lat: t.lat, lng: t.lng, label: t.emoji }))}
-        center={trips.length > 0 ? [trips[0].lng, trips[0].lat] : [127, 37.5]}
-        zoom={trips.length > 0 ? 6 : 5}
->>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
+        center={groups.length > 0 ? [groups[0].lng, groups[0].lat] : [127, 37.5]}
+        zoom={groups.length > 0 ? 6 : 5}
         onPinClick={(i) => setSelected(selected === i ? null : i)}
         onMapClick={() => setSelected(null)}
       />
@@ -335,7 +329,6 @@ export function MainMapPage() {
             border: `1.2px solid ${INK}`,
             padding: 10,
             boxShadow: '0 -6px 16px rgba(0,0,0,0.08)',
-<<<<<<< HEAD
             zIndex: 10,
             maxHeight: '55%', overflow: 'auto',
           }}>
@@ -377,45 +370,6 @@ export function MainMapPage() {
           </div>
         );
       })()}
-=======
-            cursor: 'pointer', zIndex: 10,
-          }}
-        >
-          <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: '50% 50% 50% 8%',
-              transform: 'rotate(-45deg)', background: '#d8c9a5',
-              border: `1.2px solid ${INK}`, flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <span style={{ transform: 'rotate(45deg)', fontSize: 16 }}>{trips[selected].emoji}</span>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 600, fontSize: 12 }}>{trips[selected].title}</div>
-              <div style={{ fontFamily: FONT_MONO, fontSize: 8, color: INK_SOFT, marginTop: 2 }}>
-                {trips[selected].dates} · {trips[selected].info}
-              </div>
-            </div>
-          </div>
-          <div style={{ borderTop: `1px dashed ${INK_FAINT}`, paddingTop: 8 }} />
-          <div style={{ display: 'flex', gap: 3 }}>
-            {trips[selected].thumbnails.length > 0
-              ? trips[selected].thumbnails.map((url, i) => (
-                  <div key={i} style={{
-                    width: 42, height: 42, borderRadius: 4, overflow: 'hidden',
-                    border: `1px solid ${INK_FAINT}`, flexShrink: 0,
-                  }}>
-                    <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                  </div>
-                ))
-              : [0, 1, 2].map((i) => (
-                  <PhotoTile key={i} w={42} h={42} label={String.fromCharCode(65 + i)} />
-                ))
-            }
-          </div>
-        </div>
-      )}
->>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
     </Screen>
   );
 }

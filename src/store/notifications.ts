@@ -19,27 +19,15 @@ export interface Notification {
 
 const KEY = 'yh.notifications';
 
-<<<<<<< HEAD
-// 모듈 레벨에서 한 번만 생성. 매번 새 배열을 만들면 React 의존성 비교가 깨진다.
-const SEED: Notification[] = MOCK_NOTIFICATIONS.map((m, i) => ({
-  ...m,
-  receivedAt: new Date(Date.now() - i * 60_000).toISOString(),
-  read: false,
-}));
-
-// null = 세션에 키 자체가 없음(첫 진입) → SEED 표시
-// []   = 사용자가 명시적으로 전체 삭제 → 빈 목록 유지
+// null = 세션에 키 자체가 없음(첫 진입) → 빈 목록
+// []   = 명시적 상태 — 빈 목록 유지
 export function getNotifications(): Notification[] {
   const stored = readSession<Notification[] | null>(KEY, null);
   if (stored === null) {
-    writeSession<Notification[]>(KEY, SEED);
-    return SEED;
+    writeSession<Notification[]>(KEY, []);
+    return [];
   }
   return stored;
-=======
-export function getNotifications(): Notification[] {
-  return readSession<Notification[]>(KEY, []);
->>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
 }
 
 export function pushNotification(n: Omit<Notification, 'receivedAt' | 'read'>): void {
@@ -67,12 +55,8 @@ export function useNotifications(): {
   markRead: (id: string) => void;
   push: (n: Omit<Notification, 'receivedAt' | 'read'>) => void;
 } {
-<<<<<<< HEAD
-  const [stored] = useSession<Notification[] | null>(KEY, null);
-  const effective = stored === null ? SEED : stored;
-=======
-  const [list] = useSession<Notification[]>(KEY, []);
->>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
+  const [rawList] = useSession<Notification[] | null>(KEY, null);
+  const list = rawList ?? [];
   return {
     list,
     unread: list.filter((n) => !n.read).length,

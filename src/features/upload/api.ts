@@ -26,11 +26,7 @@ export async function createRoom(body: CreateRoomRequest): Promise<Room> {
       const res = await realFetch(`${API_BASE}/rooms`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-<<<<<<< HEAD
         body: JSON.stringify({ title: body.title }),  // title만 전송
-=======
-        body: JSON.stringify({ title: body.title }),
->>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
       });
       if (!res.ok) {
         const text = await res.text().catch(() => '');
@@ -147,44 +143,3 @@ export async function completeUpload(req: PhotoCompleteRequest): Promise<Photo[]
   );
 }
 
-export async function buildCompleteItems(
-  presigned: PresignedUrlsResponse,
-  files: File[],
-): Promise<PhotoCompleteItem[]> {
-  const exifr = await import('exifr');
-  return Promise.all(
-    presigned.map(async (p, i) => {
-      const file = files[i];
-      const item: PhotoCompleteItem = {
-        photoId: p.photoId,
-        s3Key: p.original.key,
-        thumbnailKey: p.thumbnail.key,
-        fileSize: file?.size ?? 0,
-      };
-      if (!file) return item;
-      try {
-        // GPS 좌표 추출
-        const gps = await exifr.gps(file).catch(() => null);
-        if (gps?.latitude != null && gps?.longitude != null) {
-          item.lat = gps.latitude;
-          item.lng = gps.longitude;
-        }
-        // 나머지 EXIF 태그 추출
-        const exif = await exifr.parse(file, ['DateTimeOriginal', 'ExifImageWidth', 'ExifImageHeight', 'ImageWidth', 'ImageHeight']).catch(() => null);
-        if (exif) {
-          if (exif.DateTimeOriginal) {
-            item.takenAt = new Date(exif.DateTimeOriginal).toISOString();
-          }
-          const w = exif.ExifImageWidth ?? exif.ImageWidth;
-          const h = exif.ExifImageHeight ?? exif.ImageHeight;
-          if (w) item.width = w;
-          if (h) item.height = h;
-        }
-        console.log(`[EXIF] ${file.name}: lat=${item.lat}, lng=${item.lng}, takenAt=${item.takenAt}`);
-      } catch {
-        console.log(`[EXIF] ${file.name}: parse failed`);
-      }
-      return item;
-    }),
-  );
-}

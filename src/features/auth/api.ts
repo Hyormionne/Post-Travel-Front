@@ -1,11 +1,7 @@
 import { setTokens, setUser, setHasProfile, getRefreshToken, getAccessToken, getUser, getSavedEmoji, type AuthUser } from '../../store/auth';
 import { API_BASE } from '../../lib/mockMode';
 
-<<<<<<< HEAD
 const BASE_URL = API_BASE;
-=======
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:3000';
->>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
 
 interface TokenResponse {
   accessToken: string;
@@ -82,7 +78,6 @@ export async function loginWithEmail(
   return { hasProfile: true };
 }
 
-<<<<<<< HEAD
 // 이메일 회원가입. 백엔드: POST /auth/signup → { accessToken, refreshToken }
 export async function registerWithEmail(
   email: string,
@@ -120,43 +115,16 @@ export async function loginWithGoogle(idToken: string): Promise<{ hasProfile: bo
   return { hasProfile: true };
 }
 
+// LoginPage에서 호출하는 별칭 (319d24e 쪽 LoginPage 코드와 호환)
+export async function emailLogin(email: string, password: string): Promise<{ hasProfile: boolean }> {
+  return loginWithEmail(email, password);
+}
+
+export async function emailSignup(email: string, password: string, nickname: string): Promise<{ hasProfile: boolean }> {
+  return registerWithEmail(email, password, nickname);
+}
+
 // 개발용 목 로그인.
-=======
-interface AuthTokenResponse {
-  accessToken: string;
-  refreshToken: string;
-}
-
-// 이메일 로그인. 토큰 저장 + /users/me로 유저 정보 가져옴.
-export async function emailLogin(email: string, password: string): Promise<void> {
-  const data = await post<AuthTokenResponse>('/auth/login', { email, password });
-  setTokens(data.accessToken, data.refreshToken);
-  const res = await fetch(`${BASE_URL}/users/me`, {
-    headers: { Authorization: `Bearer ${data.accessToken}` },
-  });
-  if (res.ok) {
-    const user = (await res.json()) as AuthUser;
-    setUser(user);
-  }
-  setHasProfile(true);
-}
-
-// 이메일 회원가입. 토큰 저장 + /users/me로 유저 정보 가져옴.
-export async function emailSignup(email: string, password: string, nickname: string): Promise<void> {
-  const data = await post<AuthTokenResponse>('/auth/signup', { email, password, nickname });
-  setTokens(data.accessToken, data.refreshToken);
-  const res = await fetch(`${BASE_URL}/users/me`, {
-    headers: { Authorization: `Bearer ${data.accessToken}` },
-  });
-  if (res.ok) {
-    const user = (await res.json()) as AuthUser;
-    setUser(user);
-  }
-  setHasProfile(true);
-}
-
-// 개발용 목 로그인 — 백엔드 없이 흐름 확인.
->>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
 export function mockLogin() {
   setTokens('mock_access_token', 'mock_refresh_token');
   setHasProfile(false);

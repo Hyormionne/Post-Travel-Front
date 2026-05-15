@@ -19,10 +19,7 @@ import { createBlog, getBlog, patchBlog, publishBlog, generateBlogDraft } from '
 import { fetchClusters, fetchClusterPhotos } from '../clusters/api';
 import { getRoom, formatTripTitle } from '../trips/api';
 import { useDebouncedCallback } from './hooks/useDebouncedCallback';
-<<<<<<< HEAD
 import { useUploadFlow } from '../../store/uploadFlow';
-=======
->>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
 
@@ -87,7 +84,6 @@ export function EditorPage() {
         if (blogIdParam) {
           b = await getBlog(blogIdParam);
         } else if (roomIdParam) {
-<<<<<<< HEAD
           // 여행 이름: "도시, N월" 형식 우선, 없으면 room API 조회
           let blogTitle = formatTripTitle(flow.cityName, flow.travelDates, flow.tripName);
           if (!blogTitle || blogTitle === '새 여행') {
@@ -97,16 +93,6 @@ export function EditorPage() {
             } catch { /* 무시 */ }
           }
           b = await createBlog({ roomId: roomIdParam, title: blogTitle || '새 여행 블로그', content: '' });
-=======
-          // 기존 블로그가 있으면 가져오고, 없을 때만 새로 생성
-          const { listBlogs } = await import('./api');
-          const existing = await listBlogs(roomIdParam);
-          if (existing.length > 0) {
-            b = existing[0];
-          } else {
-            b = await createBlog({ roomId: roomIdParam, title: '제목 없음', content: '' });
-          }
->>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
         } else {
           return; // blogId도 roomId도 없으면 아무것도 안 함
         }
@@ -288,14 +274,9 @@ export function EditorPage() {
   const restPhotos = (blog?.photos ?? []).slice(1);
 
   const pickerCandidates = useMemo(() => {
-<<<<<<< HEAD
     const used = new Set(blog?.photos.map((p) => p.photoId) ?? []);
     return clusterPhotos.filter((p) => !used.has(p.id));
   }, [blog?.photos, clusterPhotos]);
-=======
-    return [] as { id: string; thumbnailUrl: string }[];
-  }, []);
->>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
 
   return (
     <Screen scrollable>

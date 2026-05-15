@@ -8,13 +8,9 @@ import { PhotoTile } from '../../components/PhotoTile';
 import { BottomSheet, Pill, Btn } from '../../components/ui';
 import { INK, INK_SOFT, INK_FAINT, FONT_MONO, FONT_UI, TERRA } from '../../theme/tokens';
 import { isAllowedType } from './api';
-<<<<<<< HEAD
-import { setUploadFlow, useUploadFlow } from '../../store/uploadFlow';
-import { photoCache } from '../../store/photoCache';
-=======
 import { resetUploadFlow, setUploadFlow, useUploadFlow } from '../../store/uploadFlow';
+import { photoCache } from '../../store/photoCache';
 import { storeFiles } from '../../store/uploadFiles';
->>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
 
 interface LocalFile {
   id: string;
@@ -104,9 +100,6 @@ export function PhotoUploadPage() {
   return (
     <Screen>
       <MapBg style={{ filter: 'blur(2px) brightness(0.95)' }} />
-<<<<<<< HEAD
-      <BottomSheet height="84%" onDismiss={() => router.push('/')}>
-=======
       <div
         onClick={() => router.push('/')}
         style={{
@@ -116,7 +109,6 @@ export function PhotoUploadPage() {
         }}
       />
       <BottomSheet height="84%">
->>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
           <span style={{ fontWeight: 600, fontSize: 13, fontFamily: FONT_UI }}>어떤 추억을 기록할까요?</span>
           <span
@@ -190,15 +182,6 @@ export function PhotoUploadPage() {
             </div>
             {visibleItems.map((it) => (
               <div key={it.id} data-id={it.id} style={{ cursor: 'pointer' }}>
-<<<<<<< HEAD
-                <PhotoTile
-                  w="100%"
-                  h={70}
-                  label={String.fromCharCode(65 + (i % 26))}
-                  picked={picks.includes(it.id)}
-                  src={it.previewUrl}
-                />
-=======
                 {it.previewUrl ? (
                   <div style={{
                     width: '100%', height: 70, position: 'relative', borderRadius: 4,
@@ -227,7 +210,6 @@ export function PhotoUploadPage() {
                     picked={picks.includes(it.id)}
                   />
                 )}
->>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
               </div>
             ))}
           </div>

@@ -6,6 +6,9 @@ import { Screen } from '../../components/Screen';
 import { FONT_UI, FONT_HAND } from '../../theme/tokens';
 import { loginWithGoogle, mockLogin, emailLogin, emailSignup } from './api';
 import { isLoggedIn, getHasProfile } from '../../store/auth';
+import { USE_MOCKS } from '../../lib/mockMode';
+
+const IS_MOCK = USE_MOCKS;
 
 // 컬러 — 와이어프레임 토큰 (globals.css :root 기준)
 const C = {
@@ -14,15 +17,9 @@ const C = {
   ink2: '#3a342b',
   inkSoft: '#6b6353',
   inkFaint: '#9a917e',
-<<<<<<< HEAD
   coral:    '#c66a4d',
   sage:     '#5a7a4a', // 더 진한 sage (버튼 가독성)
   tan:      '#d9b889',
-=======
-  coral: '#c66a4d',
-  sage: '#9bb583',
-  tan: '#d9b889',
->>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
 };
 
 export function LoginPage() {
@@ -60,7 +57,6 @@ export function LoginPage() {
     setError(null);
 
     try {
-<<<<<<< HEAD
       g.accounts.id.initialize({
         client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
         callback: async ({ credential }: { credential: string }) => {
@@ -80,22 +76,6 @@ export function LoginPage() {
           setLoading(false);
         }
       });
-=======
-      const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-      if (!clientId) {
-        setError('Google 로그인이 아직 설정되지 않았어요. 이메일로 시작해주세요.');
-        return;
-      }
-      const { google } = window as unknown as { google: { accounts: { id: { initialize: (cfg: { client_id: string; callback: (res: { credential: string }) => void }) => void; prompt: () => void } } } };
-      google.accounts.id.initialize({
-        client_id: clientId,
-        callback: async ({ credential }: { credential: string }) => {
-          const { hasProfile } = await loginWithGoogle(credential);
-          router.replace(hasProfile ? '/' : '/profile-setup');
-        },
-      });
-      google.accounts.id.prompt();
->>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
     } catch (e) {
       setError(e instanceof Error ? e.message : '로그인에 실패했어요.');
       setLoading(false);
@@ -197,12 +177,8 @@ export function LoginPage() {
       <div style={{
         position: 'relative',
         display: 'flex', flexDirection: 'column',
-<<<<<<< HEAD
         padding: '56px 28px 36px',
         zIndex: 1,
-=======
-        padding: '15px 28px 36px',
->>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
       }}>
 
         {/* 브랜드 */}
@@ -421,25 +397,6 @@ export function LoginPage() {
                 <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(34,31,26,.18), transparent)' }} />
               </div>
 
-<<<<<<< HEAD
-          {/* 이메일로 계속하기 */}
-          <button
-            className="yh-btn"
-            onClick={() => router.push('/login/email')}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-              width: '100%', height: 54, borderRadius: 16,
-              fontSize: 15, fontWeight: 600, fontFamily: FONT_UI,
-              letterSpacing: '-.01em',
-              background: 'transparent', color: C.ink2,
-              border: '1px solid rgba(34,31,26,.18)',
-              cursor: 'pointer',
-              transition: 'transform .15s ease',
-            }}
-          >
-            이메일로 계속하기
-          </button>
-=======
               {/* 이메일로 계속하기 */}
               <button
                 className="yh-btn"
@@ -574,7 +531,6 @@ export function LoginPage() {
               )}
             </>
           )}
->>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
 
           {/* 에러 메시지 */}
           {error && (

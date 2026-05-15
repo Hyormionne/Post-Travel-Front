@@ -85,11 +85,7 @@ export function TripDetailPage() {
     };
   }, [roomId]);
 
-<<<<<<< HEAD
 
-=======
-  const photoKeywordIndex = useMemo<Record<string, string[]>>(() => ({}), []);
->>>>>>> 319d24e6d4d3fee9422126b0d7df0206eec6837a
 
   const sortedBlogs = useMemo(() => {
     const me = getUser()?.id;
