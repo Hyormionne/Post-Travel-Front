@@ -445,26 +445,8 @@ export function MetadataPage() {
       {/* 폼 영역 */}
       <div style={{ position: 'absolute', top: 124, left: 0, right: 0, bottom: 0, padding: '14px 16px', overflow: 'auto' }}>
 
-        {/* ── 여행 이름 ── */}
-        <SectionTitle>여행 이름</SectionTitle>
-        <input
-          value={tripName}
-          onChange={(e) => {
-            setTripName(e.target.value);
-            setUploadFlow({ tripName: e.target.value });
-          }}
-          placeholder="예) 도쿄 봄여행"
-          maxLength={40}
-          style={{
-            width: '100%', padding: '11px 14px', borderRadius: 6,
-            border: `1.2px solid ${INK}`,
-            background: 'transparent', fontFamily: FONT_UI, fontSize: 13, color: INK,
-            outline: 'none', boxSizing: 'border-box', marginBottom: 14,
-          }}
-        />
-
         {/* ── 마커 커스텀 ── */}
-        <SectionTitle hint="선택">마커 커스텀</SectionTitle>
+        <SectionTitle hint="필수">마커 커스텀</SectionTitle>
         <div style={{
           display: 'flex', gap: 10, marginBottom: 10, padding: 10, borderRadius: 12,
           border: `1.2px solid ${INK}`, background: PAPER,

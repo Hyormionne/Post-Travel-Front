@@ -56,7 +56,7 @@ function roomToTrip(room: Room, loc: RoomLocation | undefined): TripSummary {
   const dateStr = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
   return {
     id: room.id,
-    emoji: '✈',
+    emoji: room.markerEmoji || '✈',
     title: room.title || '새 여행',
     dates: dateStr,
     info: `멤버 ${room.members?.length ?? 1}`,
@@ -75,10 +75,12 @@ export async function listTrips(): Promise<TripSummary[]> {
       if (!res.ok) throw new Error('listTrips failed');
       const rooms: Room[] = await res.json();
       const locations = getStoredLocations();
-      const apiTrips = rooms.map((r) => roomToTrip(r, locations[r.id]));
-      // 로컬 저장 여행 중 API에 없는 것만 추가 (새로 생성했으나 API 반환 전 등)
-      const local = getLocalTrips().filter((lt) => !apiTrips.some((at) => at.id === lt.id));
-      return [...apiTrips, ...local];
+      const localAll = getLocalTrips();
+      // 로컬에 저장된 여행이 있으면 이모지·제목이 정확하므로 우선 사용
+      const apiTrips = rooms.map((r) => localAll.find((lt) => lt.id === r.id) ?? roomToTrip(r, locations[r.id]));
+      // 로컬 저장 여행 중 API에 없는 것만 추가
+      const extra = localAll.filter((lt) => !apiTrips.some((at) => at.id === lt.id));
+      return [...apiTrips, ...extra];
     },
     async () => {
       await delay(180);
