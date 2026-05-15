@@ -132,7 +132,7 @@ export function MetadataPage() {
   // ── 마커 커스텀 ──
   const [marker, setMarker] = useState(flow.marker);
 
-  const [tripName] = useState(flow.tripName || '');
+  const [tripName, setTripName] = useState(flow.tripName || '');
   const travelDatesRef = useRef<string[]>(flow.travelDates || []);
 
   // ── 도시 검색 ──
@@ -186,7 +186,7 @@ export function MetadataPage() {
 
         if (!roomId) {
           // title만 전송 (백엔드 CreateRoomDto에 title만 있음)
-          const room = await createRoom({ title: flow.cityName || tripName || '새 여행' });
+          const room = await createRoom({ title: tripName || flow.cityName || '새 여행' });
           if (cancelled) return;
           if (!UUID_RE.test(room.id)) {
             throw new Error('방 생성에 실패했어요. 로그인 상태를 확인하고 다시 시도해주세요.');
@@ -445,8 +445,26 @@ export function MetadataPage() {
       {/* 폼 영역 */}
       <div style={{ position: 'absolute', top: 124, left: 0, right: 0, bottom: 0, padding: '14px 16px', overflow: 'auto' }}>
 
+        {/* ── 여행 이름 ── */}
+        <SectionTitle>여행 이름</SectionTitle>
+        <input
+          value={tripName}
+          onChange={(e) => {
+            setTripName(e.target.value);
+            setUploadFlow({ tripName: e.target.value });
+          }}
+          placeholder="예) 도쿄 봄여행"
+          maxLength={40}
+          style={{
+            width: '100%', padding: '11px 14px', borderRadius: 6,
+            border: `1.2px solid ${INK}`,
+            background: 'transparent', fontFamily: FONT_UI, fontSize: 13, color: INK,
+            outline: 'none', boxSizing: 'border-box', marginBottom: 14,
+          }}
+        />
+
         {/* ── 마커 커스텀 ── */}
-        <SectionTitle hint="필수">여행 이름 · 마커 커스텀</SectionTitle>
+        <SectionTitle hint="선택">마커 커스텀</SectionTitle>
         <div style={{
           display: 'flex', gap: 10, marginBottom: 10, padding: 10, borderRadius: 12,
           border: `1.2px solid ${INK}`, background: PAPER,
