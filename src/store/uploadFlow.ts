@@ -26,6 +26,12 @@ export interface UploadFlowState {
   travelDates: string[];
   // 실제 업로드된 사진 수 (completeUpload 응답에서)
   photoCount: number;
+  uploadedPhotoIds: string[];
+  uploadedPhotos: {
+    id: string;
+    url: string;
+    thumbnailUrl?: string | null;
+  }[];
 }
 
 const KEY = 'yh.uploadFlow';
@@ -50,6 +56,8 @@ const DEFAULT_STATE: UploadFlowState = {
   cityLng: null,
   travelDates: [],
   photoCount: 0,
+  uploadedPhotoIds: [],
+  uploadedPhotos: []
 };
 
 export function getUploadFlow(): UploadFlowState {

@@ -59,8 +59,8 @@ export const MOCK_PHOTOS: Photo[] = Array.from({ length: 47 }, (_, i) => ({
   aiCaption: null,
   aiKeywords: KW_SETS[i % 4],
   createdAt: new Date(Date.UTC(2025, 4, 16, 10, i)).toISOString(),
-  url: '',
-  thumbnailUrl: '',
+  url: `https://picsum.photos/seed/yh${i + 1}/400/300`,
+  thumbnailUrl: `https://picsum.photos/seed/yh${i + 1}/200/150`,
 }));
 
 // ─ Clusters ─────────────────────────────────────

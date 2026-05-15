@@ -139,3 +139,30 @@ export async function deleteBlog(id: string): Promise<void> {
     },
   );
 }
+
+// POST /blogs/:roomId/generate — AI 블로그 초안 생성 트리거
+// 백엔드 GenerateBlogDto: persona?(string), photoIds?(string[]) 둘 다 optional
+export async function generateBlogDraft(
+  roomId: string,
+  opts: { persona?: string; photoIds?: string[] } = {},
+): Promise<{ jobId: string; status: string }> {
+  return withMockFallback(
+    async () => {
+      const res = await realFetch(`${API_BASE}/blogs/${encodeURIComponent(roomId)}/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(opts),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`generateBlogDraft ${res.status}: ${text}`);
+      }
+      return res.json();
+    },
+    async () => {
+      await delay(300);
+      return { jobId: `mock-job-${Date.now()}`, status: 'PENDING' };
+    },
+  );
+}

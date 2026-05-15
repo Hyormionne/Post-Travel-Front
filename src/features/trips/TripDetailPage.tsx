@@ -58,6 +58,8 @@ export function TripDetailPage() {
   const [tab, setTab] = useState<Tab>('블로그');
   const [room, setRoom] = useState<Room | null>(null);
   const [trip, setTrip] = useState<{ emoji: string; title: string; dates: string; info: string } | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [clusters, setClusters] = useState<Cluster[]>([]);
   const [blogs, setBlogs] = useState<Blog[]>([]);
 
@@ -168,10 +170,37 @@ export function TripDetailPage() {
           <span style={{ fontFamily: FONT_UI, fontSize: 10 }}>
             {memberNames.join(', ') || '아직 멤버 없음'}
           </span>
-          <span style={{ marginLeft: 'auto', fontFamily: FONT_UI, fontSize: 10, color: SAGE, fontWeight: 600, cursor: 'pointer' }}>
+          <span
+            onClick={() => setInviteOpen((v) => !v)}
+            style={{ marginLeft: 'auto', fontFamily: FONT_UI, fontSize: 10, color: SAGE, fontWeight: 600, cursor: 'pointer' }}
+          >
             + 초대
           </span>
         </div>
+        {inviteOpen && room?.inviteToken && (() => {
+          const url = `https://yht.app/i/${room.inviteToken}`;
+          return (
+            <div style={{
+              marginTop: 6, padding: '8px 10px', borderRadius: 8,
+              border: `1.2px solid ${SAGE}`, background: PAPER,
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <span style={{ flex: 1, fontFamily: FONT_MONO, fontSize: 9, color: INK, wordBreak: 'break-all' }}>
+                {url}
+              </span>
+              <span
+                onClick={() => {
+                  navigator.clipboard?.writeText(url).catch(() => {});
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                style={{ fontFamily: FONT_UI, fontSize: 10, color: copied ? SAGE : TERRA, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}
+              >
+                {copied ? '✓ 복사됨' : '🔗 복사'}
+              </span>
+            </div>
+          );
+        })()}
         {/* Tabs — 채팅 확정: 블로그/폴더 2개만 (미니맵 삭제) */}
         <div style={{ display: 'flex', gap: 14, marginTop: 16, borderBottom: `1px solid ${INK_FAINT}` }}>
           {(['블로그', '폴더'] as const).map((t) => {

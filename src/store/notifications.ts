@@ -17,12 +17,15 @@ const SEED: Notification[] = MOCK_NOTIFICATIONS.map((m, i) => ({
   read: false,
 }));
 
-function seedIfEmpty(list: Notification[]): Notification[] {
-  return list.length > 0 ? list : SEED;
-}
-
+// null = 세션에 키 자체가 없음(첫 진입) → SEED 표시
+// []   = 사용자가 명시적으로 전체 삭제 → 빈 목록 유지
 export function getNotifications(): Notification[] {
-  return seedIfEmpty(readSession<Notification[]>(KEY, []));
+  const stored = readSession<Notification[] | null>(KEY, null);
+  if (stored === null) {
+    writeSession<Notification[]>(KEY, SEED);
+    return SEED;
+  }
+  return stored;
 }
 
 export function pushNotification(n: Omit<Notification, 'receivedAt' | 'read'>): void {
@@ -31,8 +34,7 @@ export function pushNotification(n: Omit<Notification, 'receivedAt' | 'read'>): 
 }
 
 export function markAllRead(): void {
-  const cur = getNotifications();
-  writeSession<Notification[]>(KEY, cur.map((n) => ({ ...n, read: true })));
+  writeSession<Notification[]>(KEY, []);
 }
 
 export function markRead(id: string): void {
@@ -51,8 +53,8 @@ export function useNotifications(): {
   markRead: (id: string) => void;
   push: (n: Omit<Notification, 'receivedAt' | 'read'>) => void;
 } {
-  const [list] = useSession<Notification[]>(KEY, []);
-  const effective = seedIfEmpty(list);
+  const [stored] = useSession<Notification[] | null>(KEY, null);
+  const effective = stored === null ? SEED : stored;
   return {
     list: effective,
     unread: effective.filter((n) => !n.read).length,

@@ -12,7 +12,8 @@ import {
 import { useUploadFlow, setUploadFlow } from '../../store/uploadFlow';
 import { photoCache } from '../../store/photoCache';
 import type { MarkerBgColor } from '../../types/room';
-import { createRoom, updateRoomMarker, getPresignedUrls, putToS3, completeUpload } from './api';
+import { createRoom, getPresignedUrls, putToS3, completeUpload } from './api';
+import { saveRoomLocation, saveLocalTrip, formatTripTitle } from '../trips/api';
 
 const BG_COLORS: MarkerBgColor[] = ['#d8c9a5', '#cfd8c2', '#e2c9bc', '#c9d2db', '#decfd8', '#f0ead2'];
 
@@ -189,12 +190,6 @@ export function MetadataPage() {
           }
           roomId = room.id;
           setUploadFlow({ roomId, inviteToken: room.inviteToken });
-          // 마커는 별도 PATCH로 설정 — 실패해도 업로드 흐름은 계속
-          updateRoomMarker(roomId, {
-            markerEmoji: marker.emoji,
-            markerBgColor: marker.bgColor,
-            markerShape: marker.shape,
-          }).catch((e) => console.warn('[marker] updateRoomMarker failed:', e));
         }
 
         // 실제 파일: photoCache에 ObjectURL이 있는 'file-xxx' ID들
@@ -263,7 +258,15 @@ export function MetadataPage() {
 
         const result = await completeUpload({ roomId, photos });
         if (cancelled) return;
-        setUploadFlow({ photoCount: result.length });
+        setUploadFlow({ 
+          photoCount: result.length,
+          uploadedPhotoIds: result.map((p) => p.id),
+          uploadedPhotos: result.map((p) => ({
+            id: p.id,
+            url: p.url,
+            thumbnailUrl: p.thumbnailUrl,
+         })),
+        });
         setStatus('done');
       } catch (e) {
         if (cancelled) return;
@@ -312,13 +315,35 @@ export function MetadataPage() {
   const goCluster = () => {
     if (status !== 'done') return;
     if (!flow.roomId) return;
+    const lat = selectedCity?.lat ?? flow.cityLat ?? null;
+    const lng = selectedCity?.lng ?? flow.cityLng ?? null;
+    const cityName = selectedCity?.name ?? cityQuery;
     setUploadFlow({
       tripName,
       travelDates,
-      cityName: selectedCity?.name ?? cityQuery,
-      cityLat: selectedCity?.lat ?? null,
-      cityLng: selectedCity?.lng ?? null,
+      cityName,
+      cityLat: lat,
+      cityLng: lng,
     });
+    if (lat && lng) {
+      saveRoomLocation(flow.roomId, lat, lng);
+      const title = formatTripTitle(cityName, travelDates, tripName);
+      const sorted = travelDates.slice().sort();
+      const dates = sorted.length > 1
+        ? `${sorted[0].slice(5).replace('-', '/')} — ${sorted[sorted.length - 1].slice(5).replace('-', '/')}`
+        : sorted[0] ?? '';
+      saveLocalTrip({
+        id: flow.roomId,
+        emoji: flow.marker.emoji || '✈',
+        title,
+        dates,
+        info: `사진 ${flow.photoCount || 0}`,
+        status: '초안',
+        lat,
+        lng,
+        year: sorted[0]?.slice(0, 4) ?? String(new Date().getFullYear()),
+      });
+    }
     router.push(`/clusters?roomId=${encodeURIComponent(flow.roomId)}`);
   };
 

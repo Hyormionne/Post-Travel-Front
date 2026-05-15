@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { Screen } from '../../components/Screen';
@@ -20,11 +20,29 @@ const OpenMapBg = dynamic(
 );
 
 const TOAST_AUTO_DISMISS_MS = 5000;
+const LOC_RADIUS = 0.15; // ~15km, 같은 도시 기준
+
+interface TripGroup { trips: TripSummary[]; lat: number; lng: number; }
+
+function groupByLocation(trips: TripSummary[]): TripGroup[] {
+  const result: TripGroup[] = [];
+  for (const trip of trips) {
+    if (!trip.lat && !trip.lng) continue;
+    const g = result.find(
+      (x) => Math.abs(x.lat - trip.lat) < LOC_RADIUS && Math.abs(x.lng - trip.lng) < LOC_RADIUS,
+    );
+    if (g) g.trips.push(trip);
+    else result.push({ trips: [trip], lat: trip.lat, lng: trip.lng });
+  }
+  return result;
+}
 
 export function MainMapPage() {
   const router = useRouter();
   const [trips, setTrips] = useState<TripSummary[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
+
+  const groups = useMemo(() => groupByLocation(trips), [trips]);
   const [dismissedToastIds, setDismissedToastIds] = useState<string[]>([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -34,7 +52,11 @@ export function MainMapPage() {
   useEffect(() => { setUser(getUser()); }, []);
 
   useEffect(() => {
-    listTrips().then(setTrips).catch(() => {});
+    const refetch = () => listTrips().then(setTrips).catch(() => {});
+    refetch();
+    // 다른 화면에서 돌아올 때(탭 포커스, 라우터 캐시 재사용)도 핀 갱신
+    window.addEventListener('focus', refetch);
+    return () => window.removeEventListener('focus', refetch);
   }, []);
 
   // 최신 미열람 완료 알림 — Phase 5 A 토스트.
@@ -58,7 +80,7 @@ export function MainMapPage() {
   return (
     <Screen>
       <OpenMapBg
-        pins={trips.map((t) => ({ lat: t.lat, lng: t.lng, label: t.emoji }))}
+        pins={groups.map((g) => ({ lat: g.lat, lng: g.lng, label: g.trips[0].emoji }))}
         center={[134, 38.5]}
         zoom={5}
         onPinClick={(i) => setSelected(selected === i ? null : i)}
@@ -297,51 +319,57 @@ export function MainMapPage() {
         </>
       )}
 
-      {selected !== null && trips[selected] && (
-        <div
-          onClick={() => router.push(`/trip-detail?roomId=${encodeURIComponent(trips[selected].id)}`)}
-          style={{
+      {selected !== null && groups[selected] && (() => {
+        const group = groups[selected];
+        const isMulti = group.trips.length > 1;
+        return (
+          <div style={{
             position: 'absolute', left: 12, right: 12, bottom: 14,
             background: '#f6f1e6', borderRadius: 14,
             border: `1.2px solid ${INK}`,
             padding: 10,
             boxShadow: '0 -6px 16px rgba(0,0,0,0.08)',
-            cursor: 'pointer', zIndex: 10,
-          }}
-        >
-          <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: '50% 50% 50% 8%',
-              transform: 'rotate(-45deg)', background: '#d8c9a5',
-              border: `1.2px solid ${INK}`, flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <span style={{ transform: 'rotate(45deg)', fontSize: 16 }}>{trips[selected].emoji}</span>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 600, fontSize: 12 }}>{trips[selected].title}</div>
-              <div style={{ fontFamily: FONT_MONO, fontSize: 8, color: INK_SOFT, marginTop: 2 }}>
-                {trips[selected].dates} · {trips[selected].info}
+            zIndex: 10,
+            maxHeight: '55%', overflow: 'auto',
+          }}>
+            {isMulti && (
+              <div style={{ fontFamily: FONT_MONO, fontSize: 9, color: INK_SOFT, marginBottom: 8 }}>
+                이 도시의 여행 {group.trips.length}개
               </div>
-              <div style={{ fontFamily: FONT_HAND, fontSize: 13, marginTop: 4, color: INK_SOFT }}>
-                "눈 덮인 비에이의 아침이 가장 기억에 남는..."
-              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {group.trips.map((t) => (
+                <div
+                  key={t.id}
+                  onClick={() => router.push(`/trip-detail?roomId=${encodeURIComponent(t.id)}`)}
+                  style={{
+                    display: 'flex', gap: 10, alignItems: 'center',
+                    padding: isMulti ? '8px 0' : 0,
+                    borderBottom: isMulti ? `1px solid ${INK_FAINT}` : 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{
+                    width: 36, height: 36, borderRadius: '50% 50% 50% 8%',
+                    transform: 'rotate(-45deg)', background: '#d8c9a5',
+                    border: `1.2px solid ${INK}`, flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <span style={{ transform: 'rotate(45deg)', fontSize: 16 }}>{t.emoji}</span>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 12 }}>{t.title}</div>
+                    <div style={{ fontFamily: FONT_MONO, fontSize: 8, color: INK_SOFT, marginTop: 2 }}>
+                      {t.dates} · {t.info}
+                    </div>
+                  </div>
+                  <span style={{ fontFamily: FONT_HAND, fontSize: 12, color: TERRA, flexShrink: 0 }}>→</span>
+                </div>
+              ))}
             </div>
           </div>
-          <div style={{ borderTop: `1px dashed ${INK_FAINT}`, paddingTop: 8 }} />
-          <div style={{ display: 'flex', gap: 3 }}>
-            {[0, 1, 2, 3, 4].map((i) => (
-              <PhotoTile key={i} w={42} h={42} label={String.fromCharCode(65 + selected * 5 + i)} />
-            ))}
-            <div style={{
-              width: 42, height: 42, borderRadius: 4,
-              border: `1px dashed ${INK_FAINT}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: FONT_MONO, fontSize: 9, color: INK_SOFT,
-            }}>+</div>
-          </div>
-        </div>
-      )}
+        );
+      })()}
     </Screen>
   );
 }
