@@ -4,13 +4,40 @@ import { API_BASE, delay, realFetch, withMockFallback } from '../../lib/mockMode
 export async function fetchClusters(roomId: string): Promise<Cluster[]> {
   return withMockFallback(
     async () => {
-      const res = await realFetch(`${API_BASE}/clusters?roomId=${encodeURIComponent(roomId)}`, {
-      });
+      const res = await realFetch(`${API_BASE}/clusters?roomId=${encodeURIComponent(roomId)}`);
       if (!res.ok) throw new Error('fetchClusters failed');
       return res.json();
     },
     async () => {
-      throw new Error('mock mode disabled');
+      await delay(400);
+      // mock: TIME_GPS 클러스터 2개 반환
+      const now = new Date().toISOString();
+      return [
+        {
+          id: `cluster-day1-${roomId}`,
+          roomId,
+          title: 'Day 1',
+          summary: null,
+          sceneLabel: null,
+          dayNumber: 1,
+          clusterType: 'TIME_GPS',
+          thumbnailKey: null,
+          createdAt: now,
+          thumbnailUrl: null,
+        },
+        {
+          id: `cluster-day2-${roomId}`,
+          roomId,
+          title: 'Day 2',
+          summary: null,
+          sceneLabel: null,
+          dayNumber: 2,
+          clusterType: 'TIME_GPS',
+          thumbnailKey: null,
+          createdAt: now,
+          thumbnailUrl: null,
+        },
+      ] as Cluster[];
     },
   );
 }
@@ -20,13 +47,13 @@ export async function fetchClusterPhotos(clusterId: string, roomId: string): Pro
     async () => {
       const res = await realFetch(
         `${API_BASE}/clusters/${clusterId}/photos?roomId=${encodeURIComponent(roomId)}`,
-        {},
       );
       if (!res.ok) throw new Error('fetchClusterPhotos failed');
       return res.json();
     },
     async () => {
-      throw new Error('mock mode disabled');
+      await delay(200);
+      return [] as ClusterPhoto[];
     },
   );
 }
@@ -43,7 +70,21 @@ export async function patchClusterTitle(clusterId: string, body: UpdateClusterRe
       return res.json();
     },
     async () => {
-      throw new Error('mock mode disabled');
+      await delay(150);
+      // mock: 업데이트된 클러스터를 그대로 반환
+      const now = new Date().toISOString();
+      return {
+        id: clusterId,
+        roomId: body.roomId,
+        title: body.title,
+        summary: null,
+        sceneLabel: null,
+        dayNumber: null,
+        clusterType: 'TIME_GPS',
+        thumbnailKey: null,
+        createdAt: now,
+        thumbnailUrl: null,
+      } as Cluster;
     },
   );
 }

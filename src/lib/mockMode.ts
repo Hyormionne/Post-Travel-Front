@@ -1,14 +1,22 @@
 // 백엔드 연결 전이거나 서버가 죽었을 때도 mock으로 동작.
 // USE_MOCKS=true → 항상 mock 사용 (개발 기본).
-// USE_MOCKS=false → 실 API 우선, 실패/타임아웃 시 mock으로 폴백.
-export const USE_MOCKS =
-  typeof process !== 'undefined'
-    ? process.env.NEXT_PUBLIC_USE_MOCKS !== 'false'
-    : true;
-
+// USE_MOCKS=false → 실 API 사용 (실패 시 에러 전파).
+// NEXT_PUBLIC_API_BASE가 localhost가 아닌 실서버로 설정된 경우 자동으로 real 모드.
 export const API_BASE =
   (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_BASE) ||
   'http://localhost:3000';
+
+const _isLocalhost = API_BASE.includes('localhost') || API_BASE.includes('127.0.0.1');
+const _explicitMocks =
+  typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_USE_MOCKS : undefined;
+
+export const USE_MOCKS =
+  _explicitMocks === 'false'
+    ? false
+    : _explicitMocks === 'true'
+      ? true
+      : _isLocalhost; // API_BASE가 실서버면 기본 false, localhost면 기본 true
+
 
 export const REAL_TIMEOUT_MS = 2500;
 

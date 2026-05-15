@@ -9,6 +9,8 @@ import type { Cluster } from '../../types/cluster';
 import { fetchClusters, triggerBlogDraft } from './api';
 import { FolderCardLive } from './components/FolderCardLive';
 import { useUploadFlow, setUploadFlow } from '../../store/uploadFlow';
+import { useProcessingProgress } from './hooks/useClusterStream';
+import { fetchClusters as refetchClusters } from './api';
 
 export function ClusterResultPage() {
   const router = useRouter();
@@ -17,9 +19,11 @@ export function ClusterResultPage() {
   const roomId = search?.get('roomId') ?? flow.roomId ?? '';
 
   const [clusters, setClusters] = useState<Cluster[] | null>(null);
+  const [analysisComplete, setAnalysisComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [triggering, setTriggering] = useState(false);
 
+  // 초기 클러스터 목록 로드
   useEffect(() => {
     let cancelled = false;
     fetchClusters(roomId)
@@ -30,11 +34,23 @@ export function ClusterResultPage() {
       .catch((e) => {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : 'load failed');
+        setClusters([]); // 에러 시 빈 배열로 로딩 해제
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [roomId]);
+
+  // WebSocket: cluster:created → 클러스터 목록 갱신
+  //            photo:processing_progress(SUCCESS) → 분석 완료 상태 전환
+  useProcessingProgress({
+    roomId,
+    onClusterCreated: async () => {
+      try {
+        const updated = await refetchClusters(roomId);
+        setClusters(updated);
+      } catch { /* 무시 */ }
+    },
+    onSuccess: () => setAnalysisComplete(true),
+  });
 
   const photoKeywordIndex = useMemo<Record<string, string[]>>(() => ({}), []);
 
@@ -58,18 +74,38 @@ export function ClusterResultPage() {
 
   const onLater = () => router.push('/');
 
+  // 헤더 텍스트: 로딩 중 / 분석 중(클러스터 있음) / 완료
+  const headerText = loading
+    ? '✨ 사진을 분류하고 있어요…'
+    : analysisComplete
+      ? `✨ ${clusterCount}개의 추억으로 묶었어요`
+      : clusterCount > 0
+        ? `✨ ${clusterCount}개 발견 · 분류 중…`
+        : '✨ 사진을 분류하고 있어요…';
+
+  const subText = loading
+    ? '분류 중...'
+    : analysisComplete
+      ? '클러스터링 완료'
+      : '분류 중...';
+
   return (
     <Screen>
       <div style={{ position: 'absolute', inset: 0, background: PAPER }} />
       {/* Header */}
       <div style={{ position: 'absolute', top: 32, left: 0, right: 0, padding: '6px 16px' }}>
-        <div style={{ fontFamily: FONT_HAND, fontSize: 18, color: INK, lineHeight: 1.1 }}>
-          {loading
-            ? '✨ 사진을 분류하고 있어요…'
-            : `✨ ${clusterCount}개의 추억으로 묶었어요`}
+        <div style={{ fontFamily: FONT_HAND, fontSize: 18, color: INK, lineHeight: 1.1, display: 'flex', alignItems: 'center', gap: 8 }}>
+          {headerText}
+          {!analysisComplete && !loading && (
+            <div style={{
+              width: 12, height: 12, borderRadius: '50%',
+              border: `2px solid ${INK_FAINT}`, borderTopColor: TERRA,
+              animation: 'spin 1s linear infinite', flexShrink: 0,
+            }} />
+          )}
         </div>
         <div style={{ fontFamily: FONT_MONO, fontSize: 8, color: INK_SOFT, marginTop: 4 }}>
-          {tripName} · {loading ? '분류 중...' : '클러스터링 완료'}
+          {tripName} · {subText}
         </div>
       </div>
       {/* Grid */}
@@ -127,6 +163,7 @@ export function ClusterResultPage() {
           </span>
         </div>
       </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </Screen>
   );
 }

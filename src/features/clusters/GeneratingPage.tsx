@@ -6,12 +6,11 @@ import { Screen } from '../../components/Screen';
 import { MapBg } from '../../components/MapBg';
 import { ThumbPin, FrostedHeader, FAB, MapToggle, ZoomControls, Toast } from '../../components/ui';
 import { INK, PAPER, TERRA, INK_FAINT, FONT_MONO, SAGE } from '../../theme/tokens';
-import { useFakeProgress } from './hooks/useClusterStream';
+import { useProcessingProgress, useFakeProgress } from './hooks/useClusterStream';
 import { listBlogs } from '../blog/api';
 import { useUploadFlow, setUploadFlow } from '../../store/uploadFlow';
 import { pushNotification } from '../../store/notifications';
 
-// Phase 4 C의 마커는 Phase 1 A와 동일 (pending 없음 — 채팅 확정).
 const PINS = [
   { x: 120, y: 220, label: '🌸' },
   { x: 250, y: 180, label: '🌊' },
@@ -25,39 +24,56 @@ export function GeneratingPage() {
   const search = useSearchParams();
   const [flow] = useUploadFlow();
   const roomId = search?.get('roomId') ?? flow.roomId ?? '';
+  const jobId = search?.get('jobId') ?? flow.jobId ?? null;
+
   const [toastVisible, setToastVisible] = useState(true);
   const [completedBlogId, setCompletedBlogId] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
 
-  const progress = useFakeProgress({
-    enabled: true,
+  // 완료 후 블로그 조회 → 에디터 이동
+  const handleSuccess = async () => {
+    if (done) return;
+    setDone(true);
+    try {
+      const blogs = await listBlogs(roomId);
+      const latest = blogs[0];
+      if (latest) {
+        setCompletedBlogId(latest.id);
+        pushNotification({
+          id: `n-${latest.id}`,
+          kind: 'blog:published',
+          blogId: latest.id,
+          roomId,
+          title: `'${latest.title}' 초안 완성`,
+          meta: '방금',
+          highlight: true,
+        });
+        setTimeout(() => router.push(`/editor?blogId=${encodeURIComponent(latest.id)}`), 1200);
+      } else {
+        setTimeout(() => router.push(`/trip-detail?roomId=${encodeURIComponent(roomId)}`), 1200);
+      }
+    } catch {
+      // 실패 시 사용자 액션 대기
+    }
+  };
+
+  // ── 실 WebSocket ──────────────────────────────────────────────────────────
+  const { event: realEvent, isRealSocket } = useProcessingProgress({
+    roomId,
+    jobId,
+    onSuccess: handleSuccess,
+  });
+
+  // ── Fake fallback (실 소켓 연결 실패 시) ─────────────────────────────────
+  const fakeEvent = useFakeProgress({
+    enabled: !isRealSocket,   // 실 소켓이 없을 때만 동작
     totalSteps: 5,
     stepMs: 700,
-    onSuccess: async () => {
-      // 백엔드 job이 생성한 블로그를 폴링으로 찾기
-      try {
-        const blogs = await listBlogs(roomId);
-        const latest = blogs[0];
-        if (latest) {
-          setCompletedBlogId(latest.id);
-          pushNotification({
-            id: `n-${latest.id}`,
-            kind: 'blog:published',
-            blogId: latest.id,
-            roomId,
-            title: `'${latest.title}' 초안 완성`,
-            meta: '방금',
-            highlight: true,
-          });
-          setTimeout(() => router.push(`/editor?blogId=${encodeURIComponent(latest.id)}`), 1200);
-        } else {
-          // 아직 생성 안 됨 — 여행 상세로 이동
-          setTimeout(() => router.push(`/trip-detail?roomId=${encodeURIComponent(roomId)}`), 1200);
-        }
-      } catch {
-        // 실패 시 사용자 액션 대기
-      }
-    },
+    onSuccess: handleSuccess,
   });
+
+  // 실 소켓 연결 여부에 따라 표시할 progress 선택
+  const progress = isRealSocket ? realEvent : fakeEvent;
 
   // 토스트 5초 후 자동 사라짐
   useEffect(() => {
@@ -72,7 +88,9 @@ export function GeneratingPage() {
     ? '초안 완성'
     : progress.status === 'PROCESSING_CALLBACK'
       ? '마무리 중...'
-      : `${progress.doneCount} / ${progress.totalCount} 작성 중`;
+      : progress.status === 'SUCCESS'
+        ? '완료'
+        : `${progress.doneCount} / ${progress.totalCount} 작성 중`;
 
   return (
     <Screen>
@@ -98,9 +116,12 @@ export function GeneratingPage() {
           width: 16, height: 16, borderRadius: '50%',
           border: `2px solid ${INK_FAINT}`,
           borderTopColor: completedBlogId ? SAGE : TERRA,
-          animation: completedBlogId ? 'none' : 'spin 1s linear infinite',
+          animation: (completedBlogId || progress.status === 'SUCCESS') ? 'none' : 'spin 1s linear infinite',
         }} />
         <span style={{ fontFamily: FONT_MONO, fontSize: 9 }}>{label}</span>
+        {!isRealSocket && (
+          <span style={{ fontFamily: FONT_MONO, fontSize: 7, color: INK_FAINT, marginLeft: 2 }}>(시뮬)</span>
+        )}
       </div>
       {toastVisible && (
         <Toast>
@@ -117,8 +138,7 @@ export function GeneratingPage() {
   );
 }
 
-// 흐름 완료 후 store 정리 — 다음 업로드를 위해.
-// (Editor 진입 시점에 정리하지 않으면 stale 데이터가 다음 흐름에 끼어듦)
+// 흐름 완료 후 store 정리
 export function _resetFlowAfterEditorEnter() {
   setUploadFlow({ selectedLocalIds: [], jobId: null });
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Screen } from '../../components/Screen';
 import { PhotoTile } from '../../components/PhotoTile';
@@ -59,30 +59,46 @@ export function MetadataPage() {
   const [tripName, setTripName] = useState(flow.tripName || '');
   const [marker, setMarker] = useState(flow.marker);
   const [progress, setProgress] = useState(0);
+  const [uploadedBytes, setUploadedBytes] = useState(0);
+  const [speedMBps, setSpeedMBps] = useState<number | null>(null);
   const [status, setStatus] = useState<'idle' | 'uploading' | 'completing' | 'done' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
+  // 업로드를 한 번만 시작하는 ref
+  const startedRef = useRef(false);
 
-  // 마커 커스텀은 변경 즉시 store에 반영
+  // 마커 커스텀은 변경 즉시 store에 반영 (업로드 전 단계에서만)
   useEffect(() => {
-    setFlow({ marker, tripName });
+    if (status === 'idle') setFlow({ marker, tripName });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marker.emoji, marker.bgColor, marker.shape, tripName]);
+  }, [marker.emoji, marker.bgColor, marker.shape, tripName, status]);
 
-  const startUpload = async () => {
+  // 페이지 진입 시 이미 여행 이름이 있으면 자동 업로드 시작
+  useEffect(() => {
+    if (!startedRef.current && tripName.trim() && realFiles.length > 0) {
+      startedRef.current = true;
+      // 약간의 지연을 주어 UI 렌더링 후 시작되도록 함
+      setTimeout(() => startUpload(tripName), 100);
+    }
+  }, []);
+
+  const startUpload = async (nameOverride?: string) => {
     if (status === 'uploading' || status === 'completing') return;
-    if (!tripName.trim()) { setError('여행 이름을 입력해주세요.'); return; }
+    const name = (nameOverride ?? tripName).trim();
+    if (!name) { setError('여행 이름을 입력해주세요.'); return; }
     if (realFiles.length === 0) { setError('업로드할 사진이 없어요.'); return; }
 
     setError(null);
     setStatus('uploading');
     setProgress(0);
+    setUploadedBytes(0);
+    setSpeedMBps(null);
 
     try {
       // 1) 룸 생성
       let roomId = flow.roomId;
       if (!roomId) {
         const room = await createRoom({
-          title: tripName.trim(),
+          title: name,
           markerEmoji: marker.emoji,
           markerBgColor: marker.bgColor,
           markerShape: marker.shape,
@@ -100,12 +116,29 @@ export function MetadataPage() {
       }));
       const presigned = await getPresignedUrls({ roomId, files: filesMeta });
 
-      // 3) S3 PUT — 실제 파일 업로드 + 진행률
+      // 3) S3 PUT — 실제 파일 업로드 + 진행률 + 실시간 속도
       const totalBytes = realFiles.reduce((s, { file }) => s + file.size, 0);
       const loaded = new Array<number>(presigned.length).fill(0);
+
+      // 속도 계산: 0.5초 간격으로 증분 바이트 / 경과 시간
+      let lastBytes = 0;
+      let lastTime = Date.now();
+      const speedTimer = setInterval(() => {
+        const now = Date.now();
+        const currentBytes = loaded.reduce((a, b) => a + b, 0);
+        const dt = (now - lastTime) / 1000; // seconds
+        if (dt > 0) {
+          const bps = (currentBytes - lastBytes) / dt;
+          setSpeedMBps(bps / (1024 * 1024));
+        }
+        lastBytes = currentBytes;
+        lastTime = now;
+      }, 500);
+
       const update = () => {
         const sum = loaded.reduce((a, b) => a + b, 0);
-        setProgress(Math.min(1, sum / totalBytes));
+        setUploadedBytes(sum);
+        setProgress(Math.min(1, totalBytes > 0 ? sum / totalBytes : 0));
       };
       const tasks: Promise<void>[] = [];
       presigned.forEach((p, i) => {
@@ -119,6 +152,8 @@ export function MetadataPage() {
         tasks.push(putToS3(p.thumbnail.url, realFiles[i].file));
       });
       await Promise.all(tasks);
+      clearInterval(speedTimer);
+      setSpeedMBps(null);
       setProgress(1);
 
       // 4) complete
@@ -135,25 +170,41 @@ export function MetadataPage() {
     }
   };
 
+  // 이름 검증 후 업로드 시작
+  const handleStartWithName = () => {
+    if (!tripName.trim()) {
+      setError('여행 이름을 입력해주세요.');
+      return;
+    }
+    startUpload();
+  };
+
   const inviteUrl = useMemo(() => {
-    const token = flow.inviteToken ?? '4Kj9aB';
+    const token = flow.inviteToken;
+    if (!token) return null;
     return `yht.app/i/${token}`;
   }, [flow.inviteToken]);
 
   const onCopyInvite = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(`https://${inviteUrl}`).catch(() => {});
+      navigator.clipboard.writeText(`https://${inviteUrl}`).catch(() => { });
     }
   };
 
   const doneCount = Math.round(progress * fileCount);
+  // 업로드된 총 바이트 → MB 단위 표시
+  const uploadedMB = (uploadedBytes / (1024 * 1024)).toFixed(1);
+  // 속도: 소수점 1자리, 최소 0.0
+  const speedLabel = speedMBps != null && speedMBps > 0
+    ? `${speedMBps.toFixed(1)} MB/s`
+    : status === 'uploading' ? '...' : status === 'done' ? '✓' : '...';
   const headerLabel =
     status === 'done'
       ? '업로드 완료'
       : status === 'completing'
         ? 'AI 분석 시작 중'
         : status === 'uploading'
-          ? `업로드 중 · ${doneCount} / ${fileCount}`
+          ? `업로드 중 · ${doneCount} / ${fileCount}장 · ${uploadedMB} MB`
           : `${fileCount}장 준비됨`;
 
   const visiblePreviewCount = Math.min(7, fileCount);
@@ -172,7 +223,7 @@ export function MetadataPage() {
           fontFamily: FONT_MONO, fontSize: 9, color: status === 'error' ? TERRA : INK_SOFT,
         }}>
           <span>{status === 'error' ? `오류 · ${error}` : headerLabel}</span>
-          <span>{status === 'uploading' ? '2.4 MB/s' : status === 'done' ? '✓' : '...'}</span>
+          <span style={{ fontVariantNumeric: 'tabular-nums' }}>{speedLabel}</span>
         </div>
         <Progress value={progress} />
         <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
@@ -310,18 +361,28 @@ export function MetadataPage() {
             fontFamily: FONT_UI, fontSize: 16, color: INK_SOFT, cursor: 'pointer',
           }}>+</div>
         </div>
-        <div style={{
-          padding: '10px 12px', borderRadius: 6, border: `1.2px solid ${INK}`,
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14,
-        }}>
-          <span style={{ fontFamily: FONT_MONO, fontSize: 9 }}>{inviteUrl}</span>
-          <span
-            onClick={onCopyInvite}
-            style={{ fontFamily: FONT_UI, fontSize: 10, fontWeight: 600, color: TERRA, cursor: 'pointer' }}
-          >
-            🔗 복사
-          </span>
-        </div>
+        {inviteUrl ? (
+          <div style={{
+            padding: '10px 12px', borderRadius: 6, border: `1.2px solid ${INK}`,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14,
+          }}>
+            <span style={{ fontFamily: FONT_MONO, fontSize: 9 }}>{inviteUrl}</span>
+            <span
+              onClick={onCopyInvite}
+              style={{ fontFamily: FONT_UI, fontSize: 10, fontWeight: 600, color: TERRA, cursor: 'pointer' }}
+            >
+              🔗 복사
+            </span>
+          </div>
+        ) : (
+          <div style={{
+            padding: '10px 12px', borderRadius: 6, border: `1.2px dashed ${INK_FAINT}`,
+            marginBottom: 14,
+            fontFamily: FONT_MONO, fontSize: 9, color: INK_FAINT, textAlign: 'center',
+          }}>
+            여행을 만들면 초대 링크가 생성됩니다
+          </div>
+        )}
         <SectionTitle>대표 사진</SectionTitle>
         <div style={{ display: 'flex', gap: 6, marginBottom: 14, overflowX: 'auto' }}>
           {realFiles.slice(0, 8).map(({ id }) => {
@@ -355,26 +416,87 @@ export function MetadataPage() {
             );
           })}
         </div>
-        <Btn
-          primary={status === 'idle' || status === 'done'}
-          full
-          onClick={startUpload}
-          style={{
-            marginTop: 8,
-            opacity: status === 'uploading' || status === 'completing' ? 0.55 : 1,
-            cursor: status === 'uploading' || status === 'completing' ? 'not-allowed' : 'pointer',
-          }}
-        >
-          {status === 'idle'
-            ? '업로드 시작'
-            : status === 'uploading'
-              ? `업로드 중 ${doneCount} / ${fileCount}`
-              : status === 'completing'
-                ? 'AI 분석 시작 중...'
-                : status === 'error'
-                  ? '다시 시도'
-                  : '준비 완료'}
-        </Btn>
+
+        {/* 하단 버튼 영역 — 업로드 상태별 변화 */}
+        {status === 'idle' && (
+          <>
+            {error && (
+              <p style={{ fontSize: 11, color: TERRA, marginBottom: 6, marginTop: 0 }}>{error}</p>
+            )}
+            <Btn
+              primary
+              full
+              onClick={handleStartWithName}
+              style={{ marginTop: 4 }}
+            >
+              여행 만들고 업로드 시작 →
+            </Btn>
+          </>
+        )}
+
+        {(status === 'uploading' || status === 'completing') && (
+          <div style={{
+            marginTop: 4,
+            padding: '14px 16px',
+            borderRadius: 12,
+            background: status === 'completing' ? '#eef4e8' : '#f6f1e6',
+            border: `1.2px solid ${status === 'completing' ? SAGE : INK_FAINT}`,
+            display: 'flex', flexDirection: 'column', gap: 6,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{
+                width: 14, height: 14, borderRadius: '50%',
+                border: `2px solid ${status === 'completing' ? SAGE : INK_FAINT}`,
+                borderTopColor: status === 'completing' ? SAGE : TERRA,
+                animation: 'spin 1s linear infinite', flexShrink: 0,
+              }} />
+              <span style={{ fontFamily: FONT_UI, fontSize: 12, fontWeight: 600 }}>
+                {status === 'completing'
+                  ? 'AI가 사진을 분석하고 있어요'
+                  : `업로드 중 · ${doneCount} / ${fileCount}장`}
+              </span>
+              <span style={{ marginLeft: 'auto', fontFamily: FONT_MONO, fontSize: 9, color: INK_SOFT, fontVariantNumeric: 'tabular-nums' }}>
+                {speedLabel}
+              </span>
+            </div>
+            <div style={{ height: 4, borderRadius: 99, background: INK_FAINT, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                width: `${Math.round(progress * 100)}%`,
+                background: status === 'completing' ? SAGE : TERRA,
+                borderRadius: 99,
+                transition: 'width 0.3s ease',
+              }} />
+            </div>
+            <span style={{ fontFamily: FONT_MONO, fontSize: 9, color: INK_SOFT }}>
+              {status === 'completing'
+                ? '완료 후 자동으로 이동할게요'
+                : `${uploadedMB} MB 전송됨`}
+            </span>
+          </div>
+        )}
+
+        {status === 'done' && (
+          <Btn
+            primary
+            full
+            onClick={() => router.push(`/clusters?roomId=${encodeURIComponent(flow.roomId ?? '')}`)}
+            style={{ marginTop: 4 }}
+          >
+            여행 기록 보러 가기 →
+          </Btn>
+        )}
+
+        {status === 'error' && (
+          <>
+            <p style={{ fontSize: 11, color: TERRA, marginBottom: 6, marginTop: 0 }}>오류 · {error}</p>
+            <Btn full onClick={() => startUpload()} style={{ marginTop: 4 }}>
+              다시 시도하기
+            </Btn>
+          </>
+        )}
+
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     </Screen>
   );

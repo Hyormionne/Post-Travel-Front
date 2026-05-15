@@ -29,7 +29,19 @@ export async function createRoom(body: CreateRoomRequest): Promise<Room> {
       return res.json();
     },
     async () => {
-      throw new Error('mock mode disabled');
+      await delay(300);
+      const now = new Date().toISOString();
+      return {
+        id: `room-${Math.random().toString(36).slice(2, 10)}`,
+        title: body.title ?? '새 여행',
+        inviteToken: Math.random().toString(36).slice(2, 8),
+        createdBy: 'mock-user',
+        createdAt: now,
+        members: [],
+        markerEmoji: body.markerEmoji ?? '✨',
+        markerBgColor: body.markerBgColor ?? '#d8c9a5',
+        markerShape: body.markerShape ?? 'classic',
+      };
     },
   );
 }
@@ -48,8 +60,9 @@ export async function getPresignedUrls(req: PresignedUrlsRequest): Promise<Presi
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req),
+        timeoutMs: 10000, // presigned URL 발급은 최대 10초
       });
-      if (!res.ok) throw new Error('presigned-urls failed');
+      if (!res.ok) throw new Error(`presigned-urls failed: ${res.status}`);
       return res.json();
     },
     async () => {
@@ -105,7 +118,8 @@ export async function completeUpload(req: PhotoCompleteRequest): Promise<Photo[]
       return res.json();
     },
     async () => {
-      throw new Error('mock mode disabled');
+      await delay(400);
+      return [];
     },
   );
 }
