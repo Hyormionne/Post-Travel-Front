@@ -134,6 +134,9 @@ export function MetadataPage() {
 
   const [tripName, setTripName] = useState(flow.tripName || '');
   const travelDatesRef = useRef<string[]>(flow.travelDates || []);
+  const cityCoordRef = useRef<{ lat: number; lng: number } | null>(
+    flow.cityLat && flow.cityLng ? { lat: flow.cityLat, lng: flow.cityLng } : null,
+  );
 
   // ── 도시 검색 ──
   const [cityQuery, setCityQuery] = useState(flow.cityName || '');
@@ -146,7 +149,7 @@ export function MetadataPage() {
 
   // ── 날짜 선택 ──
   const [travelDates, setTravelDates] = useState<string[]>(flow.travelDates || []);
-  // ref를 통해 비동기 upload 클로저에서 최신 날짜 읽기
+  // ref를 통해 비동기 upload 클로저에서 최신 값 읽기
   useEffect(() => { travelDatesRef.current = travelDates; }, [travelDates]);
 
   // ── 업로드 진행 ──
@@ -247,9 +250,9 @@ export function MetadataPage() {
         const dates = travelDatesRef.current.slice().sort();
         const today = new Date().toISOString().slice(0, 10);
         const effectiveDates = dates.length > 0 ? dates : [today];
-        // 도시 좌표 (저장된 값 우선)
-        const cityLat = selectedCity?.lat ?? flow.cityLat ?? null;
-        const cityLng = selectedCity?.lng ?? flow.cityLng ?? null;
+        // 도시 좌표 — ref로 최신값 읽기 (클로저 캡처 문제 방지)
+        const cityLat = cityCoordRef.current?.lat ?? null;
+        const cityLng = cityCoordRef.current?.lng ?? null;
         const photos = presigned.map((p, i) => {
           const dateIdx = Math.min(Math.floor((i / presigned.length) * effectiveDates.length), effectiveDates.length - 1);
           const item: import('../../types/photo').PhotoCompleteItem = {
@@ -318,6 +321,7 @@ export function MetadataPage() {
     setCityQuery(city.name);
     setCitySuggestions([]);
     setShowSuggestions(false);
+    cityCoordRef.current = { lat: city.lat, lng: city.lng };
     setUploadFlow({ cityName: city.name, cityLat: city.lat, cityLng: city.lng });
   };
 

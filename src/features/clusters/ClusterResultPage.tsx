@@ -106,7 +106,8 @@ export function ClusterResultPage() {
   const tripName = flow.cityName || flow.tripName || '새 여행';
 
   // 진행률 표시용
-  const showProgress = !stream.isDone || clusterCount === 0;
+  const isComplete = clusterCount > 0 || stream.isDone;
+  const showProgress = !isComplete;
   // WebSocket 이벤트가 오면 실제 퍼센트, 없으면 경과 시간 기반 추정 (5분 = 99%)
   const progressPercent = stream.totalCount > 0
     ? stream.percent
