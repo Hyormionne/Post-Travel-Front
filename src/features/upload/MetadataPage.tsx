@@ -352,15 +352,6 @@ export function MetadataPage() {
     router.push(`/clusters?roomId=${encodeURIComponent(flow.roomId)}`);
   };
 
-  // 이름 검증 후 업로드 시작
-  const handleStartWithName = () => {
-    if (!tripName.trim()) {
-      setError('여행 이름을 입력해주세요.');
-      return;
-    }
-    startUpload();
-  };
-
   const inviteUrl = useMemo(() => {
     const token = flow.inviteToken;
     if (!token) return null;

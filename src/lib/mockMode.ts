@@ -2,6 +2,11 @@
 // USE_MOCKS=true → 항상 mock 사용 (개발 기본).
 // USE_MOCKS=false → 실 API 사용 (실패 시 에러 전파).
 // NEXT_PUBLIC_API_BASE가 localhost가 아닌 실서버로 설정된 경우 자동으로 real 모드.
+export const USE_MOCKS =
+  typeof process !== 'undefined'
+    ? process.env.NEXT_PUBLIC_USE_MOCKS !== 'false'
+    : true;
+
 export const API_BASE =
   (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_BASE) ||
   'http://localhost:3000';
