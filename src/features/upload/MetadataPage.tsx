@@ -14,6 +14,7 @@ import { photoCache } from '../../store/photoCache';
 import type { MarkerBgColor } from '../../types/room';
 import { createRoom, getPresignedUrls, putToS3, completeUpload } from './api';
 import { saveRoomLocation, saveLocalTrip, formatTripTitle } from '../trips/api';
+import exifr from 'exifr';
 
 const BG_COLORS: MarkerBgColor[] = ['#d8c9a5', '#cfd8c2', '#e2c9bc', '#c9d2db', '#decfd8', '#f0ead2'];
 
@@ -246,26 +247,47 @@ export function MetadataPage() {
         setProgress(1);
         setStatus('completing');
 
-        // takenAt: 선택한 날짜로 사진에 분산, 미선택 시 오늘 날짜 fallback (없으면 Uncategorized)
+        // EXIF 읽기 — 실제 촬영 날짜·GPS 추출, 없으면 null
+        type ExifData = { takenAt: string | null; lat: number | null; lng: number | null };
+        const exifList: ExifData[] = await Promise.all(
+          fileInfos.map(async (f) => {
+            try {
+              const parsed = await exifr.parse(f.blob, { pick: ['DateTimeOriginal', 'GPSLatitude', 'GPSLongitude', 'GPSLatitudeRef', 'GPSLongitudeRef'] });
+              if (!parsed) return { takenAt: null, lat: null, lng: null };
+              let takenAt: string | null = null;
+              if (parsed.DateTimeOriginal instanceof Date) {
+                takenAt = parsed.DateTimeOriginal.toISOString();
+              }
+              const lat = typeof parsed.latitude === 'number' ? parsed.latitude
+                : (await exifr.gps(f.blob).catch(() => null))?.latitude ?? null;
+              const lng = typeof parsed.longitude === 'number' ? parsed.longitude
+                : (await exifr.gps(f.blob).catch(() => null))?.longitude ?? null;
+              return { takenAt, lat, lng };
+            } catch {
+              return { takenAt: null, lat: null, lng: null };
+            }
+          }),
+        );
+
+        // fallback: 캘린더 선택 날짜로 균등 분배, 없으면 오늘
         const dates = travelDatesRef.current.slice().sort();
         const today = new Date().toISOString().slice(0, 10);
         const effectiveDates = dates.length > 0 ? dates : [today];
-        // 도시 좌표 — ref로 최신값 읽기 (클로저 캡처 문제 방지)
         const cityLat = cityCoordRef.current?.lat ?? null;
         const cityLng = cityCoordRef.current?.lng ?? null;
+
         const photos = presigned.map((p, i) => {
+          const exif = exifList[i] ?? { takenAt: null, lat: null, lng: null };
           const dateIdx = Math.min(Math.floor((i / presigned.length) * effectiveDates.length), effectiveDates.length - 1);
           const item: import('../../types/photo').PhotoCompleteItem = {
             photoId: p.photoId,
             s3Key: p.original.key,
             thumbnailKey: p.thumbnail.key,
             fileSize: Math.max(1, fileInfos[i]?.blob.size ?? 1024),
-            takenAt: `${effectiveDates[dateIdx]}T10:00:00.000Z`,
+            takenAt: exif.takenAt ?? `${effectiveDates[dateIdx]}T10:00:00.000Z`,
+            lat: exif.lat ?? cityLat ?? undefined,
+            lng: exif.lng ?? cityLng ?? undefined,
           };
-          if (cityLat && cityLng) {
-            item.lat = cityLat;
-            item.lng = cityLng;
-          }
           return item;
         });
 
